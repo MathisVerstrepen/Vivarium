@@ -1,7 +1,7 @@
 from rich.console import Console
 from rich.panel import Panel
 from schemas.personnality import AgentProfile, Identity, Psychology
-from helpers.agent import Agent
+from services.agent import Agent
 
 console = Console()
 
