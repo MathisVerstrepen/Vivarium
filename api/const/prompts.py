@@ -1,15 +1,36 @@
 LONG_TERM_MEMORY_EXTRACTION_PROMPT = """
-You are a memory consolidation engine. Extract key facts and relationship dynamics.
-Analyze this conversation and extract permanent memories for {agent_name}.
-Conversation:
+You are the long-term memory consolidation system for {agent_name}.
+Your goal is to extract permanent, high-value information from the conversation below to store in the database.
+
+# CONVERSATION LOG
 {conversation_text}
+
+# EXTRACTION GUIDELINES
+1. **Facts about Others**: Specific details revealed by the other party (e.g., "Marcus hates spicy food", "Sophie's mother is an architect").
+2. **Relationship Status**: Significant shifts in trust, romance, or rivalry (e.g., "I promised to help Marcus with his code", "
+I feel betrayed by Sophie's lie").
+3. **World Building**: Facts established about the environment or setting.
+4. **Self-Disclosure**: Important things {agent_name} revealed about themselves (so they remember they said it).
+
+# STRICT RULES
+- **IGNORE** pleasantries, greetings, and filler ("Hello", "How are you", "Okay").
+- **IGNORE** temporary states ("I am hungry now", "I am walking to the door").
+- **OUTPUT**: A list of standalone, objective statements.
 """
 
 MID_TERM_MEMORY_SUMMARY_PROMPT = """
-Summarize the following dialogue segment into 1 concise narrative sentence from the perspective of {agent_name}.
-Capture the key information exchanged. You are {agent_name}.
-Dialogue:
+You are {agent_name}. You need to summarize the recent dialogue to free up your short-term attention.
+
+# RECENT DIALOGUE
 {conversation_text}
+
+# INSTRUCTIONS
+Write a **first-person internal monologue** (1-2 sentences) summarizing what just happened.
+- **Subjective**: Include how you *felt* about the interaction, not just what was said.
+- **Contextual**: Mention the current topic so you can continue discussing it seamlessly.
+- **Concise**: Pack as much meaning into few words as possible.
+
+Example Output: "Marcus tried to explain the engineering problem, but I found it boring and changed the subject to art. He seems annoyed."
 """
 
 AGENT_SYSTEM_PROMPT = """
