@@ -3,6 +3,7 @@ from schemas.interaction import AgentOutput
 from schemas.personnality import AgentProfile
 from schemas.memory import MemoryExtraction
 from helpers.openrouter import run_llm, run_llm_with_schema
+from services.memory_store import MemoryStore
 from const.prompts import (
     LONG_TERM_MEMORY_EXTRACTION_PROMPT,
     MID_TERM_MEMORY_SUMMARY_PROMPT,
@@ -14,28 +15,30 @@ class Agent:
     def __init__(
         self,
         profile: AgentProfile,
+        memory_store: MemoryStore,
         model: str = "google/gemini-3-flash-preview",
         memory_trigger: int = 15,
         memory_batch_size: int = 5,
     ):
         self.profile = profile
         self.model = model
+        self.memory_store = memory_store
 
         # Configuration for the Sliding Window
         self.MEMORY_TRIGGER = memory_trigger
         self.MEMORY_BATCH_SIZE = memory_batch_size
 
-        # 1. Short Term: Raw strings (The active conversation window for the LLM context)
+        # Context
+        self.situation = ""
+
+        # 1. Short Term: Raw strings (The active conversation window)
         self.short_term_memory: List[str] = []
 
-        # 2. Mid Term: Summarized blocks (The narrative history for the LLM context)
+        # 2. Mid Term: Summarized blocks (The narrative history)
         self.mid_term_memory: List[str] = []
 
-        # 3. Archival Memory: The complete, raw history of the current conversation session.
+        # 3. Archival Memory: The complete, raw history of the current session.
         self.archival_memory: List[str] = []
-
-        # 4. Long Term: Persistent facts (The "Vault")
-        self.long_term_memory: List[str] = []
 
     def _build_system_prompt(self, other_agent_name: str) -> str:
         """Constructs the 'Soul' of the agent for the LLM."""
@@ -44,10 +47,23 @@ class Agent:
         mor = p.morality
         comm = p.communication
 
-        # Format Long Term Memory
-        ltm_context = "No previous knowledge."
-        if self.long_term_memory:
-            ltm_context = "\n- ".join(self.long_term_memory)
+        # --- VECTOR RETRIEVAL LOGIC ---
+        query_context = ""
+        if len(self.short_term_memory) > 0:
+            query_context = "\n".join(self.short_term_memory[-3:])
+        else:
+            query_context = f"Who is {other_agent_name}? {self.situation}"
+
+        print("[DEBUG] Querying LTM with context:\n", query_context)
+
+        retrieved_memories = self.memory_store.retrieve_relevant_memories(
+            agent_name=self.profile.identity.name, query_text=query_context, limit=5
+        )
+
+        ltm_context = "No relevant memories found."
+        if retrieved_memories:
+            ltm_context = "\n- ".join(retrieved_memories)
+        print(f"[DEBUG] Retrieved LTM for {p.identity.name}:\n- {ltm_context}\n")
 
         # Logic to determine instruction for verbosity
         length_instruction = "Keep sentences normal length."
@@ -83,6 +99,7 @@ class Agent:
             emotions_triggers=", ".join(p.emotions.triggers),
             comm_tone=comm.tone,
             comm_formality=comm.formality,
+            situation=self.situation,
             other_agents_names=other_agent_name,
         )
 
@@ -112,7 +129,7 @@ class Agent:
             self.mid_term_memory.append(f"{summary}")
 
     def process_conversation_end(self):
-        """Finalizes the conversation by extracting long-term insights."""
+        """Finalizes the conversation by extracting long-term insights and saving to Vector DB."""
         # We use archival_memory here to ensure no details are lost due to summarization
         full_context = "\n".join(self.archival_memory)
 
@@ -125,8 +142,10 @@ class Agent:
             schema=MemoryExtraction,
         )
 
-        # Commit to the Vault
-        self.long_term_memory.extend(extraction.facts)
+        # Commit to the Vector Database (The Vault)
+        self.memory_store.add_memories(
+            agent_name=self.profile.identity.name, texts=extraction.facts
+        )
 
         return extraction
 
@@ -143,7 +162,6 @@ class Agent:
 
     def act(self, other_agent_name: str) -> AgentOutput:
         # 1. Check Memory Pressure BEFORE acting
-        # If we are at 15 messages, this brings us down to 10 before generating the new response.
         self._compress_memory()
 
         # 2. Construct Context

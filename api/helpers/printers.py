@@ -10,8 +10,6 @@ def print_memory_state(agent: Agent, memory_type: str) -> None:
         memory = agent.short_term_memory
     elif memory_type == "mid_term":
         memory = agent.mid_term_memory
-    elif memory_type == "long_term":
-        memory = agent.long_term_memory
     else:
         raise ValueError("Invalid memory type specified.")
 

@@ -10,6 +10,7 @@ from schemas.personnality import (
     CommunicationStyle,
 )
 from services.agent import Agent
+from services.memory_store import MemoryStore
 from helpers.printers import print_memory_state
 
 console = Console()
@@ -104,15 +105,19 @@ def create_profiles():
 
 
 def main():
+    memory_store = MemoryStore()
+
     p1, p2 = create_profiles()
 
     agent_a = Agent(
         p1,
+        memory_store=memory_store,
         memory_trigger=MEMORY_LENGTH_THRESHOLD,
         memory_batch_size=MEMORY_COMPRESSION_BATCH,
     )
     agent_b = Agent(
         p2,
+        memory_store=memory_store,
         memory_trigger=MEMORY_LENGTH_THRESHOLD,
         memory_batch_size=MEMORY_COMPRESSION_BATCH,
     )
@@ -126,9 +131,9 @@ def main():
         f"[dim]Memory Config: Trigger={MEMORY_LENGTH_THRESHOLD}, Batch={MEMORY_COMPRESSION_BATCH}[/dim]\n"
     )
 
-    seed = "SYSTEM: You are meeting for the first time at a student party."
-    agent_a.listen(seed, "SYSTEM")
-    agent_b.listen(seed, "SYSTEM")
+    seed = "You are meeting for the first time at a student party."
+    agent_a.situation = seed
+    agent_b.situation = seed
 
     conversation_active = True
     turn_count = 0
@@ -155,7 +160,10 @@ def main():
         console.print(f'Says: "{action.speech}"\n')
 
         # Log Memory State
-        if pre_act_size >= 15 and post_act_size < 15:
+        if (
+            pre_act_size >= MEMORY_LENGTH_THRESHOLD
+            and post_act_size < MEMORY_LENGTH_THRESHOLD
+        ):
             console.print(
                 f"[bold red] >>> MEMORY COMPRESSED! {pre_act_size} items -> {post_act_size} items. Added to Mid-Term.[/bold red]"
             )
@@ -173,14 +181,24 @@ def main():
         turn_count += 1
         print("-" * 20)
 
+    console.print(
+        "[bold magenta]End of Conversation. Extracting Memories to Vector DB...[/bold magenta]"
+    )
+
     agent_a.process_conversation_end()
     agent_b.process_conversation_end()
 
     # Print final memory states
     print_memory_state(agent_a, "mid_term")
-    print_memory_state(agent_a, "long_term")
     print_memory_state(agent_b, "mid_term")
-    print_memory_state(agent_b, "long_term")
+
+    # Verification: Check what Sophie remembers about Marcus
+    console.print(
+        "\n[bold blue]Verification: What does Sophie remember about Marcus?[/bold blue]"
+    )
+    mems = memory_store.retrieve_relevant_memories("Sophie", "Marcus", limit=10)
+    for m in mems:
+        console.print(f"- {m}")
 
     agent_a.clear_memory()
     agent_b.clear_memory()
