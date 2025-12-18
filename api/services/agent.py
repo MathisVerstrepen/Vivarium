@@ -25,13 +25,16 @@ class Agent:
         self.MEMORY_TRIGGER = memory_trigger
         self.MEMORY_BATCH_SIZE = memory_batch_size
 
-        # 1. Short Term: Raw strings (The active conversation window)
+        # 1. Short Term: Raw strings (The active conversation window for the LLM context)
         self.short_term_memory: List[str] = []
 
-        # 2. Mid Term: Summarized blocks (The narrative history of this chat)
+        # 2. Mid Term: Summarized blocks (The narrative history for the LLM context)
         self.mid_term_memory: List[str] = []
 
-        # 3. Long Term: Persistent facts (The "Vault")
+        # 3. Archival Memory: The complete, raw history of the current conversation session.
+        self.archival_memory: List[str] = []
+
+        # 4. Long Term: Persistent facts (The "Vault")
         self.long_term_memory: List[str] = []
 
     def _build_system_prompt(self, other_agent_name: str) -> str:
@@ -110,8 +113,8 @@ class Agent:
 
     def process_conversation_end(self):
         """Finalizes the conversation by extracting long-term insights."""
-        # Combine everything for the final analysis
-        full_context = "\n".join(self.mid_term_memory + self.short_term_memory)
+        # We use archival_memory here to ensure no details are lost due to summarization
+        full_context = "\n".join(self.archival_memory)
 
         extraction = run_llm_with_schema(
             user_prompt=LONG_TERM_MEMORY_EXTRACTION_PROMPT.format(
@@ -128,11 +131,15 @@ class Agent:
         return extraction
 
     def clear_memory(self):
+        """Resets the temporary memories for the next session."""
         self.short_term_memory = []
         self.mid_term_memory = []
+        self.archival_memory = []
 
     def listen(self, message: str, sender_name: str):
-        self.short_term_memory.append(f"{sender_name}: {message}")
+        formatted_message = f"{sender_name}: {message}"
+        self.short_term_memory.append(formatted_message)
+        self.archival_memory.append(formatted_message)
 
     def act(self, other_agent_name: str) -> AgentOutput:
         # 1. Check Memory Pressure BEFORE acting
@@ -161,8 +168,6 @@ class Agent:
             system_prompt=self._build_system_prompt(other_agent_name),
         )
 
-        self.short_term_memory.append(
-            f"{self.profile.identity.name}: {response.speech}"
-        )
+        self.listen(response.speech, self.profile.identity.name)
 
         return response

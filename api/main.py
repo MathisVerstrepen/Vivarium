@@ -160,7 +160,9 @@ def main():
                 f"[bold red] >>> MEMORY COMPRESSED! {pre_act_size} items -> {post_act_size} items. Added to Mid-Term.[/bold red]"
             )
         else:
-            console.print(f"[dim]Memory Buffer: {post_act_size}/15[/dim]")
+            console.print(
+                f"[dim]Memory Buffer: {post_act_size}/{MEMORY_LENGTH_THRESHOLD}[/dim]"
+            )
 
         # LISTEN
         other_agent.listen(action.speech, current_speaker.profile.identity.name)
