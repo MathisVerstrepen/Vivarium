@@ -10,8 +10,13 @@ from schemas.personnality import (
     CommunicationStyle,
 )
 from services.agent import Agent
+from helpers.printers import print_memory_state
 
 console = Console()
+
+MAX_CONVERSATION_TURNS = 100
+MEMORY_LENGTH_THRESHOLD = 16
+MEMORY_COMPRESSION_BATCH = 8
 
 
 def create_profiles():
@@ -100,28 +105,48 @@ def create_profiles():
 
 def main():
     p1, p2 = create_profiles()
-    agent_a = Agent(p1)
-    agent_b = Agent(p2)
+
+    agent_a = Agent(
+        p1,
+        memory_trigger=MEMORY_LENGTH_THRESHOLD,
+        memory_batch_size=MEMORY_COMPRESSION_BATCH,
+    )
+    agent_b = Agent(
+        p2,
+        memory_trigger=MEMORY_LENGTH_THRESHOLD,
+        memory_batch_size=MEMORY_COMPRESSION_BATCH,
+    )
 
     console.print(
         Panel.fit(
             f"Start: {p1.identity.name} vs {p2.identity.name}", style="bold green"
         )
     )
+    console.print(
+        f"[dim]Memory Config: Trigger={MEMORY_LENGTH_THRESHOLD}, Batch={MEMORY_COMPRESSION_BATCH}[/dim]\n"
+    )
 
-    seed_topic = "They meet at a student party"
-    agent_a.memory.append(f"SYSTEM: {seed_topic}")
-    agent_b.memory.append(f"SYSTEM: {seed_topic}")
+    seed = "SYSTEM: You are meeting for the first time at a student party."
+    agent_a.listen(seed, "SYSTEM")
+    agent_b.listen(seed, "SYSTEM")
 
-    console.print(f"[italic grey]{seed_topic}[/italic grey]\n")
+    conversation_active = True
+    turn_count = 0
 
-    turns = 100
-    current_speaker = agent_a
-    other_agent = agent_b
+    while conversation_active and turn_count < MAX_CONVERSATION_TURNS:
+        current_speaker = agent_a if turn_count % 2 == 0 else agent_b
+        other_agent = agent_b if current_speaker == agent_a else agent_a
 
-    for _ in range(turns):
+        # Check buffer size BEFORE act to see if compression is about to happen
+        pre_act_size = len(current_speaker.short_term_memory)
+
+        # ACT
         action = current_speaker.act(other_agent.profile.identity.name)
 
+        # Check buffer size AFTER act to detect change
+        post_act_size = len(current_speaker.short_term_memory)
+
+        # VISUALIZE
         color = "cyan" if current_speaker == agent_a else "yellow"
         console.print(
             f"[{color} bold]{current_speaker.profile.identity.name}[/{color} bold] ({action.mood})"
@@ -129,12 +154,34 @@ def main():
         console.print(f"[italic dim]Thought: {action.inner_monologue}[/italic dim]")
         console.print(f'Says: "{action.speech}"\n')
 
-        if action.end_conversation:
-            console.print(Panel.fit("Conversation ended.", style="bold red"))
-            break
+        # Log Memory State
+        if pre_act_size >= 15 and post_act_size < 15:
+            console.print(
+                f"[bold red] >>> MEMORY COMPRESSED! {pre_act_size} items -> {post_act_size} items. Added to Mid-Term.[/bold red]"
+            )
+        else:
+            console.print(f"[dim]Memory Buffer: {post_act_size}/15[/dim]")
 
+        # LISTEN
         other_agent.listen(action.speech, current_speaker.profile.identity.name)
-        current_speaker, other_agent = other_agent, current_speaker
+
+        if action.end_conversation:
+            conversation_active = False
+
+        turn_count += 1
+        print("-" * 20)
+
+    agent_a.process_conversation_end()
+    agent_b.process_conversation_end()
+
+    # Print final memory states
+    print_memory_state(agent_a, "mid_term")
+    print_memory_state(agent_a, "long_term")
+    print_memory_state(agent_b, "mid_term")
+    print_memory_state(agent_b, "long_term")
+
+    agent_a.clear_memory()
+    agent_b.clear_memory()
 
 
 if __name__ == "__main__":
