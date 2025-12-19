@@ -5,3 +5,4 @@
 venv/
 *.pyc
 vivarium_storage
+*.db

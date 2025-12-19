@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from schemas.interaction import AgentOutput
 from schemas.personnality import AgentProfile
 from schemas.memory import MemoryExtraction
@@ -19,6 +19,9 @@ class Agent:
         model: str = "google/gemini-3-flash-preview",
         memory_trigger: int = 15,
         memory_batch_size: int = 5,
+        initial_short_term_memory: Optional[List[str]] = None,
+        initial_mid_term_memory: Optional[List[str]] = None,
+        situation: str = "",
     ):
         self.profile = profile
         self.model = model
@@ -29,15 +32,19 @@ class Agent:
         self.MEMORY_BATCH_SIZE = memory_batch_size
 
         # Context
-        self.situation = ""
+        self.situation = situation
 
         # 1. Short Term: Raw strings (The active conversation window)
-        self.short_term_memory: List[str] = []
+        self.short_term_memory: List[str] = (
+            initial_short_term_memory if initial_short_term_memory else []
+        )
 
         # 2. Mid Term: Summarized blocks (The narrative history)
-        self.mid_term_memory: List[str] = []
+        self.mid_term_memory: List[str] = (
+            initial_mid_term_memory if initial_mid_term_memory else []
+        )
 
-        # 3. Archival Memory: The complete, raw history of the current session.
+        # 3. Archival Memory: For this session (not persisted in SQL currently, usually transient)
         self.archival_memory: List[str] = []
 
     def _build_system_prompt(self, other_agent_name: str) -> str:

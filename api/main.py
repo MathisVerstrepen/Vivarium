@@ -1,208 +1,190 @@
-from rich.console import Console
-from rich.panel import Panel
-from schemas.personnality import (
-    AgentProfile,
-    Identity,
-    Psychology,
-    MoralCompass,
-    EmotionalProfile,
-    Cognition,
-    CommunicationStyle,
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from typing import List, cast
+
+# Database & CRUD
+from database.database import get_db, engine, Base
+from database import crud
+
+# Schemas
+from schemas.personnality import AgentProfile
+from schemas.api_dtos import (
+    CreateWorldRequest,
+    WorldResponse,
+    CreateAgentRequest,
+    AgentResponse,
+    InteractRequest,
+    InteractionResponse,
+    WhisperRequest,
+    AgentStateResponse,
 )
-from services.agent import Agent
+
+# Services
 from services.memory_store import MemoryStore
-from helpers.printers import print_memory_state
+from services.factory import hydrate_agent_service
 
-console = Console()
+# Initialize Tables
+Base.metadata.create_all(bind=engine)
 
-MAX_CONVERSATION_TURNS = 100
-MEMORY_LENGTH_THRESHOLD = 16
-MEMORY_COMPRESSION_BATCH = 8
+app = FastAPI(title="Vivarium API", description="AI Playground Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Shared Vector Store
+memory_store = MemoryStore()
+
+# --- ROUTES ---
 
 
-def create_profiles():
-    # 1. SOPHIE: Creative, enthusiastic, spontaneous artist
-    sophie = AgentProfile(
-        identity=Identity(
-            name="Sophie",
-            age=21,
-            gender="Female",
-            occupation="Art Student",
-            backstory="Lives for creativity and new experiences. Loves meeting new people and sharing ideas.",
-        ),
-        psychology=Psychology(
-            openness=0.95,
-            conscientiousness=0.4,
-            extraversion=0.85,
-            agreeableness=0.75,
-            neuroticism=0.4,
-        ),
-        morality=MoralCompass(
-            care_harm=0.8,
-            fairness_cheating=0.7,
-            loyalty_betrayal=0.6,
-            authority_subversion=0.7,
-            sanctity_degradation=0.3,
-        ),
-        emotions=EmotionalProfile(
-            base_mood="Excited and curious",
-            emotional_volatility=0.6,
-            attachment_style="Secure",
-            triggers=["Boredom", "Rigid rules"],
-        ),
-        cognition=Cognition(
-            decision_basis="Intuition",
-            impulsivity=0.8,
-        ),
-        communication=CommunicationStyle(
-            verbosity=0.8,
-            formality=0.2,
-            tone="Warm, playful, expressive",
-        ),
+@app.get("/")
+async def health_check():
+    return {"status": "ok", "db": "sqlite"}
+
+
+# 1. WORLD MANAGEMENT
+
+
+@app.post("/worlds", response_model=WorldResponse)
+async def create_world(req: CreateWorldRequest, db: Session = Depends(get_db)):
+    db_world = crud.create_world(db, req.name)
+    return WorldResponse(id=db_world.id, name=db_world.name)
+
+
+@app.get("/worlds", response_model=List[WorldResponse])
+async def list_worlds(db: Session = Depends(get_db)):
+    worlds = crud.get_worlds(db)
+    return [WorldResponse(id=w.id, name=w.name) for w in worlds]
+
+
+# 2. AGENT MANAGEMENT
+
+
+@app.post("/agents", response_model=AgentResponse)
+async def create_agent(req: CreateAgentRequest, db: Session = Depends(get_db)):
+    # Validate World
+    world = crud.get_world_by_id(db, req.world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+
+    # Create Agent
+    db_agent = crud.create_agent(
+        db,
+        world_id=req.world_id,
+        profile=req.profile,
+        initial_situation=req.initial_situation or "",
     )
 
-    # 2. MARCUS: Calm, thoughtful, grounded engineer
-    marcus = AgentProfile(
-        identity=Identity(
-            name="Marcus",
-            age=24,
-            gender="Male",
-            occupation="Software Engineer Student",
-            backstory="Enjoys solving problems and learning how things work. Appreciates people who bring energy to his life.",
-        ),
-        psychology=Psychology(
-            openness=0.7,
-            conscientiousness=0.85,
-            extraversion=0.5,
-            agreeableness=0.7,
-            neuroticism=0.25,
-        ),
-        morality=MoralCompass(
-            care_harm=0.7,
-            fairness_cheating=0.85,
-            loyalty_betrayal=0.8,
-            authority_subversion=0.4,
-            sanctity_degradation=0.3,
-        ),
-        emotions=EmotionalProfile(
-            base_mood="Calm and content",
-            emotional_volatility=0.2,
-            attachment_style="Secure",
-            triggers=["Dishonesty", "Chaos without purpose"],
-        ),
-        cognition=Cognition(
-            decision_basis="Logic",
-            impulsivity=0.2,
-        ),
-        communication=CommunicationStyle(
-            verbosity=0.5,
-            formality=0.5,
-            tone="Steady, curious, supportive",
-        ),
+    return AgentResponse(
+        id=db_agent.id,
+        world_id=db_agent.world_id,
+        name=db_agent.name,
+        current_situation=db_agent.current_situation,
     )
 
-    return sophie, marcus
 
-
-def main():
-    memory_store = MemoryStore()
-
-    p1, p2 = create_profiles()
-
-    agent_a = Agent(
-        p1,
-        memory_store=memory_store,
-        memory_trigger=MEMORY_LENGTH_THRESHOLD,
-        memory_batch_size=MEMORY_COMPRESSION_BATCH,
-    )
-    agent_b = Agent(
-        p2,
-        memory_store=memory_store,
-        memory_trigger=MEMORY_LENGTH_THRESHOLD,
-        memory_batch_size=MEMORY_COMPRESSION_BATCH,
-    )
-
-    console.print(
-        Panel.fit(
-            f"Start: {p1.identity.name} vs {p2.identity.name}", style="bold green"
+@app.get("/worlds/{world_id}/agents", response_model=List[AgentResponse])
+async def list_agents_in_world(world_id: int, db: Session = Depends(get_db)):
+    agents = crud.get_agents_by_world(db, world_id)
+    return [
+        AgentResponse(
+            id=a.id,
+            world_id=a.world_id,
+            name=a.name,
+            current_situation=a.current_situation,
         )
-    )
-    console.print(
-        f"[dim]Memory Config: Trigger={MEMORY_LENGTH_THRESHOLD}, Batch={MEMORY_COMPRESSION_BATCH}[/dim]\n"
-    )
+        for a in agents
+    ]
 
-    seed = "You are meeting for the first time at a student party."
-    agent_a.situation = seed
-    agent_b.situation = seed
 
-    conversation_active = True
-    turn_count = 0
+@app.get("/agents/{agent_id}", response_model=AgentStateResponse)
+async def get_agent_detail(agent_id: int, db: Session = Depends(get_db)):
+    agent_db = crud.get_agent(db, agent_id)
+    if not agent_db:
+        raise HTTPException(status_code=404, detail="Agent not found")
 
-    while conversation_active and turn_count < MAX_CONVERSATION_TURNS:
-        current_speaker = agent_a if turn_count % 2 == 0 else agent_b
-        other_agent = agent_b if current_speaker == agent_a else agent_a
+    profile = AgentProfile.model_validate(agent_db.profile_json)
 
-        # Check buffer size BEFORE act to see if compression is about to happen
-        pre_act_size = len(current_speaker.short_term_memory)
+    # Casts for response model
+    stm = cast(List[str], agent_db.short_term_memory)
+    mtm = cast(List[str], agent_db.mid_term_memory)
 
-        # ACT
-        action = current_speaker.act(other_agent.profile.identity.name)
-
-        # Check buffer size AFTER act to detect change
-        post_act_size = len(current_speaker.short_term_memory)
-
-        # VISUALIZE
-        color = "cyan" if current_speaker == agent_a else "yellow"
-        console.print(
-            f"[{color} bold]{current_speaker.profile.identity.name}[/{color} bold] ({action.mood})"
-        )
-        console.print(f"[italic dim]Thought: {action.inner_monologue}[/italic dim]")
-        console.print(f'Says: "{action.speech}"\n')
-
-        # Log Memory State
-        if (
-            pre_act_size >= MEMORY_LENGTH_THRESHOLD
-            and post_act_size < MEMORY_LENGTH_THRESHOLD
-        ):
-            console.print(
-                f"[bold red] >>> MEMORY COMPRESSED! {pre_act_size} items -> {post_act_size} items. Added to Mid-Term.[/bold red]"
-            )
-        else:
-            console.print(
-                f"[dim]Memory Buffer: {post_act_size}/{MEMORY_LENGTH_THRESHOLD}[/dim]"
-            )
-
-        # LISTEN
-        other_agent.listen(action.speech, current_speaker.profile.identity.name)
-
-        if action.end_conversation:
-            conversation_active = False
-
-        turn_count += 1
-        print("-" * 20)
-
-    console.print(
-        "[bold magenta]End of Conversation. Extracting Memories to Vector DB...[/bold magenta]"
+    return AgentStateResponse(
+        id=agent_db.id,
+        profile=profile,
+        short_term_memory=stm,
+        mid_term_memory=mtm,
+        current_situation=agent_db.current_situation,
     )
 
-    agent_a.process_conversation_end()
-    agent_b.process_conversation_end()
 
-    # Print final memory states
-    print_memory_state(agent_a, "mid_term")
-    print_memory_state(agent_b, "mid_term")
+# 3. INTERACTION LOOP
 
-    # Verification: Check what Sophie remembers about Marcus
-    console.print(
-        "\n[bold blue]Verification: What does Sophie remember about Marcus?[/bold blue]"
+
+@app.post("/interact", response_model=InteractionResponse)
+async def interact(req: InteractRequest, db: Session = Depends(get_db)):
+    # 1. Fetch Data
+    source_db = crud.get_agent(db, req.source_agent_id)
+    target_db = crud.get_agent(db, req.target_agent_id)
+
+    if not source_db or not target_db:
+        raise HTTPException(status_code=404, detail="One or more agents not found")
+
+    if source_db.world_id != target_db.world_id:
+        raise HTTPException(status_code=400, detail="Agents are in different worlds!")
+
+    # 2. Hydrate Logic Services
+    source_agent = hydrate_agent_service(memory_store, source_db)
+    target_agent = hydrate_agent_service(memory_store, target_db)
+
+    pre_act_count = len(source_agent.short_term_memory)
+
+    # 3. Execute AI Logic
+    output = source_agent.act(target_agent.profile.identity.name)
+    target_agent.listen(output.speech, source_agent.profile.identity.name)
+
+    # 4. Persist Changes via CRUD
+    # Update Source (Handling potential memory compression)
+    crud.update_agent_memory(
+        db,
+        agent_id=source_db.id,
+        short_term_mem=source_agent.short_term_memory,
+        mid_term_mem=source_agent.mid_term_memory,
     )
-    mems = memory_store.retrieve_relevant_memories("Sophie", "Marcus", limit=10)
-    for m in mems:
-        console.print(f"- {m}")
 
-    agent_a.clear_memory()
-    agent_b.clear_memory()
+    # Update Target (Added new message)
+    crud.update_agent_memory(
+        db,
+        agent_id=target_db.id,
+        short_term_mem=target_agent.short_term_memory,
+        # Target doesn't compress memory when listening, so we don't need to update mid_term
+    )
+
+    was_compressed = len(source_agent.short_term_memory) < pre_act_count
+
+    return InteractionResponse(
+        source_agent_id=source_db.id,
+        target_agent_id=target_db.id,
+        source_agent_name=source_db.name,
+        output=output,
+        memory_compressed=was_compressed,
+    )
 
 
-if __name__ == "__main__":
-    main()
+@app.post("/agent/whisper")
+async def whisper(req: WhisperRequest, db: Session = Depends(get_db)):
+    agent_db = crud.get_agent(db, req.agent_id)
+    if not agent_db:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    crud.append_agent_short_term_memory(
+        db, agent_id=req.agent_id, message=f"[Internal Subconscious]: {req.content}"
+    )
+
+    return {"status": "success"}

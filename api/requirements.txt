@@ -3,3 +3,5 @@ pydantic
 rich
 python-dotenv
 chromadb
+fastapi[standard]
+SQLAlchemy
