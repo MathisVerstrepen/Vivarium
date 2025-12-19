@@ -1,4 +1,4 @@
-import { Scene } from 'phaser';
+import { Scene, Math as PhaserMath } from 'phaser';
 
 export class MainScene extends Scene {
     constructor() {
@@ -41,5 +41,30 @@ export class MainScene extends Scene {
 
         // 4. Set collisions for the AI
         collisionsLayer.setCollisionByProperty({ collides: true });
+
+        // 5. Camera Setup
+        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        this.cameras.main.centerOn(map.widthInPixels / 2, map.heightInPixels / 2);
+
+        // 6. Input Events: Zoom
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+            const zoomDirection = deltaY > 0 ? -1 : 1;
+            const zoomStep = 0.1;
+
+            const newZoom = this.cameras.main.zoom + zoomDirection * zoomStep;
+
+            this.cameras.main.zoom = PhaserMath.Clamp(newZoom, 0.5, 3);
+        });
+
+        // 7. Input Events: Panning
+        this.input.on('pointermove', (pointer) => {
+            if (!pointer.isDown) return;
+
+            const dx = (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
+            const dy = (pointer.y - pointer.prevPosition.y) / this.cameras.main.zoom;
+
+            this.cameras.main.scrollX -= dx;
+            this.cameras.main.scrollY -= dy;
+        });
     }
 }
