@@ -6,6 +6,12 @@ export class MainScene extends Scene {
         this.player = null;
         this.cursors = null;
         this.isFreeCam = false;
+        this.worldId = null;
+    }
+
+    init(data) {
+        this.worldId = data.worldId;
+        console.log(`Initializing World ID: ${this.worldId}`);
     }
 
     preload() {
@@ -65,7 +71,7 @@ export class MainScene extends Scene {
                 frames: [130, 131, 132, 133, 134, 135],
             }),
             frameRate: 10,
-            repeat: -1, // Loop forever
+            repeat: -1,
         });
 
         this.anims.create({
@@ -140,7 +146,6 @@ export class MainScene extends Scene {
 
         window.addEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
 
-        // Cleanup listener on scene shutdown
         this.events.on('shutdown', () => {
             window.removeEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
         });
@@ -150,7 +155,6 @@ export class MainScene extends Scene {
         if (!this.player || !this.cursors) return;
 
         if (this.isFreeCam) {
-            // --- Free Cam Logic ---
             const cameraSpeed = 10;
             const adjustedSpeed = cameraSpeed / this.cameras.main.zoom;
 
@@ -166,7 +170,7 @@ export class MainScene extends Scene {
                 this.cameras.main.scrollY += adjustedSpeed;
             }
         } else {
-            // --- Player Movement & Animation Logic ---
+            // Player control logic
             const baseSpeed = 200;
             const sprintSpeed = 350;
             const isSprinting = this.cursors.shift.isDown;
@@ -174,7 +178,6 @@ export class MainScene extends Scene {
 
             this.player.setVelocity(0);
 
-            // Horizontal Movement
             if (this.cursors.left.isDown || this.wasd.left.isDown) {
                 this.player.setVelocityX(-speed);
                 this.player.anims.play('left', true);
@@ -183,7 +186,6 @@ export class MainScene extends Scene {
                 this.player.anims.play('right', true);
             }
 
-            // Vertical Movement
             if (this.cursors.up.isDown || this.wasd.up.isDown) {
                 this.player.setVelocityY(-speed);
                 this.player.anims.play('up', true);

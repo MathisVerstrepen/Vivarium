@@ -1,11 +1,17 @@
 <script setup>
 import { MainScene } from '@/game/scenes/mainScene';
 
+const props = defineProps({
+    worldId: {
+        type: Number,
+        required: true,
+    },
+});
+
 const containerId = 'phaser-game-container';
 let gameInstance = null;
 
 onMounted(async () => {
-    // CRITICAL: Dynamically import Phaser here.
     const { default: Phaser } = await import('phaser');
 
     const config = {
@@ -13,7 +19,7 @@ onMounted(async () => {
         width: '100%',
         height: '100%',
         parent: containerId,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#1c1917',
         physics: {
             default: 'arcade',
             arcade: {
@@ -29,6 +35,8 @@ onMounted(async () => {
     };
 
     gameInstance = new Phaser.Game(config);
+
+    gameInstance.scene.start('MainScene', { worldId: props.worldId });
 });
 
 onUnmounted(() => {
@@ -40,7 +48,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div :id="containerId" class="flex items-center justify-center bg-white" />
+    <div :id="containerId" class="h-full w-full" />
 </template>
 
 <style scoped></style>
