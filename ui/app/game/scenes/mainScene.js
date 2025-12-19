@@ -167,7 +167,11 @@ export class MainScene extends Scene {
             }
         } else {
             // --- Player Movement & Animation Logic ---
-            const speed = 200;
+            const baseSpeed = 200;
+            const sprintSpeed = 350;
+            const isSprinting = this.cursors.shift.isDown;
+            const speed = isSprinting ? sprintSpeed : baseSpeed;
+
             this.player.setVelocity(0);
 
             // Horizontal Movement
