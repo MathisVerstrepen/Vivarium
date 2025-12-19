@@ -19,8 +19,11 @@ export class MainScene extends Scene {
         // 2. Load the Tiled JSON
         this.load.tilemapTiledJSON('map-key', '/maps/world.json');
 
-        // 3. Load Player Sprite
-        this.load.image('player', '/sprites/player.png');
+        // 3. Load the Player Spritesheet
+        this.load.spritesheet('player', '/sprites/player.png', {
+            frameWidth: 48,
+            frameHeight: 96,
+        });
     }
 
     create() {
@@ -53,7 +56,45 @@ export class MainScene extends Scene {
         this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
         this.player.setDepth(10);
 
-        // 5. Set collisions
+        // --- Define Animations ---
+        // Grid has 56 columns and 20 rows
+
+        this.anims.create({
+            key: 'down',
+            frames: this.anims.generateFrameNumbers('player', {
+                frames: [130, 131, 132, 133, 134, 135],
+            }),
+            frameRate: 10,
+            repeat: -1, // Loop forever
+        });
+
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('player', {
+                frames: [124, 125, 126, 127, 128, 129],
+            }),
+            frameRate: 10,
+            repeat: -1,
+        });
+
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('player', {
+                frames: [112, 113, 114, 115, 116, 117],
+            }),
+            frameRate: 12,
+            repeat: -1,
+        });
+
+        this.anims.create({
+            key: 'up',
+            frames: this.anims.generateFrameNumbers('player', {
+                frames: [118, 119, 120, 121, 122, 123],
+            }),
+            frameRate: 10,
+            repeat: -1,
+        });
+
         collisionsLayer.setCollisionByExclusion([-1]);
         collisionsLayer.setVisible(false);
 
@@ -110,8 +151,7 @@ export class MainScene extends Scene {
 
         if (this.isFreeCam) {
             // --- Free Cam Logic ---
-            const cameraSpeed = 10; // Pixels per frame (approx)
-            // Adjust speed based on zoom so it doesn't feel too fast when zoomed in
+            const cameraSpeed = 10;
             const adjustedSpeed = cameraSpeed / this.cameras.main.zoom;
 
             if (this.cursors.left.isDown || this.wasd.left.isDown) {
@@ -126,26 +166,33 @@ export class MainScene extends Scene {
                 this.cameras.main.scrollY += adjustedSpeed;
             }
         } else {
-            // --- Player Movement Logic ---
+            // --- Player Movement & Animation Logic ---
             const speed = 200;
             this.player.setVelocity(0);
 
             // Horizontal Movement
             if (this.cursors.left.isDown || this.wasd.left.isDown) {
                 this.player.setVelocityX(-speed);
+                this.player.anims.play('left', true);
             } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
                 this.player.setVelocityX(speed);
+                this.player.anims.play('right', true);
             }
 
             // Vertical Movement
             if (this.cursors.up.isDown || this.wasd.up.isDown) {
                 this.player.setVelocityY(-speed);
+                this.player.anims.play('up', true);
             } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
                 this.player.setVelocityY(speed);
+                this.player.anims.play('down', true);
             }
 
             if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
                 this.player.body.velocity.normalize().scale(speed);
+            } else {
+                this.player.anims.stop();
+                this.player.setFrame(3);
             }
         }
     }
