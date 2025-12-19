@@ -6,29 +6,32 @@ let gameInstance = null;
 
 onMounted(async () => {
     // CRITICAL: Dynamically import Phaser here.
-    // This ensures it ONLY loads on the client-side (browser).
     const { default: Phaser } = await import('phaser');
 
     const config = {
         type: Phaser.AUTO,
-        width: 800,
-        height: 600,
-        parent: containerId, // Matches the div ID above
+        width: '100%',
+        height: '100%',
+        parent: containerId,
+        backgroundColor: '#ffffff',
         physics: {
             default: 'arcade',
             arcade: {
-                gravity: { y: 0 }, // Top-down games usually have 0 gravity
+                gravity: { y: 0 },
                 debug: true,
             },
         },
         scene: [MainScene],
+        scale: {
+            mode: Phaser.Scale.RESIZE,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
     };
 
     gameInstance = new Phaser.Game(config);
 });
 
 onUnmounted(() => {
-    // Cleanup to prevent memory leaks when navigating away
     if (gameInstance) {
         gameInstance.destroy(true);
         gameInstance = null;
@@ -37,7 +40,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div :id="containerId" class="flex h-screen w-screen items-center justify-center bg-black" />
+    <div :id="containerId" class="flex items-center justify-center bg-white" />
 </template>
 
 <style scoped></style>

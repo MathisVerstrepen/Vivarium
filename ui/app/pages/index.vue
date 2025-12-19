@@ -1,5 +1,5 @@
 <template>
-    <div class="flex h-screen w-screen items-center justify-center bg-black">
+    <div class="flex h-screen w-screen items-center justify-center bg-white">
         <ClientOnly>
             <PhaserInstance />
             <template #fallback>

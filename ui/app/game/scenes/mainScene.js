@@ -6,33 +6,33 @@ export class MainScene extends Scene {
     }
 
     preload() {
-        // Load assets here (place images in your /public folder)
-        // this.load.image('logo', '/logo.png');
+        // 1. Load the Tileset Image
+        this.load.image('Room_Builder_48x48', '/tilesets/Interiors/Room_Builder_48x48.png');
+        this.load.image('Interiors_48x48', '/tilesets/Interiors/Interiors_48x48.png');
+        this.load.image('Exteriors', '/tilesets/Exteriors/Exteriors.png');
+
+        // 2. Load the Tiled JSON
+        this.load.tilemapTiledJSON('map-key', '/maps/world.json');
     }
 
     create() {
-        // Create game objects
-        const text = this.add.text(400, 300, 'AI Playground Active', {
-            fontSize: '32px',
-            color: '#ffffff',
-        });
-        text.setOrigin(0.5);
+        // 1. Create the map object
+        const map = this.make.tilemap({ key: 'map-key' });
 
-        // Example: Draw a grid for your AI world
-        const graphics = this.add.graphics();
-        graphics.lineStyle(1, 0x00ff00, 0.5);
-        for (let x = 0; x < 800; x += 32) {
-            graphics.moveTo(x, 0);
-            graphics.lineTo(x, 600);
-        }
-        for (let y = 0; y < 600; y += 32) {
-            graphics.moveTo(0, y);
-            graphics.lineTo(800, y);
-        }
-        graphics.strokePath();
-    }
+        // 2. Add the tileset to the map
+        const tilesetRoomBuilder = map.addTilesetImage('Room_Builder_48x48', 'Room_Builder_48x48');
+        const tilesetInteriors = map.addTilesetImage('Interiors_48x48', 'Interiors_48x48');
+        const tilesetExteriors = map.addTilesetImage('Exteriors', 'Exteriors');
+        const tilesets = [tilesetRoomBuilder, tilesetInteriors, tilesetExteriors];
 
-    update() {
-        // The game loop (runs ~60 times per second)
+        // 3. Create Layers
+        const groundLayer = map.createLayer('Ground', tilesets, 0, 0);
+        const baseLayer = map.createLayer('Base', tilesets, 0, 0);
+        const objectsLayer = map.createLayer('Objects', tilesets, 0, 0);
+        const charactersLayer = map.createLayer('Characters', tilesets, 0, 0);
+        const collisionsLayer = map.createLayer('Collisions', [], 0, 0);
+
+        // 4. Set collisions for the AI
+        collisionsLayer.setCollisionByProperty({ collides: true });
     }
 }
