@@ -53,14 +53,30 @@ export class MainScene extends Scene {
         map.createLayer('Ground', tilesets, 0, 0);
         map.createLayer('Base', tilesets, 0, 0);
         map.createLayer('Objects', tilesets, 0, 0);
+        map.createLayer('Objects 2', tilesets, 0, 0);
+        map.createLayer('Objects 3', tilesets, 0, 0);
         const collisionsLayer = map.createLayer('Collisions', tilesetCollisions, 0, 0);
 
         // 4. Create Player
-        const spawnX = map.widthInPixels / 2;
-        const spawnY = map.heightInPixels / 2;
+        const storageKeyX = `vivarium_pos_x_${this.worldId}`;
+        const storageKeyY = `vivarium_pos_y_${this.worldId}`;
+        const storedX = localStorage.getItem(storageKeyX);
+        const storedY = localStorage.getItem(storageKeyY);
+
+        let spawnX, spawnY;
+
+        if (storedX && storedY) {
+            spawnX = parseFloat(storedX);
+            spawnY = parseFloat(storedY);
+        } else {
+            spawnX = map.widthInPixels / 2;
+            spawnY = map.heightInPixels / 2;
+        }
 
         this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
         this.player.setDepth(10);
+        this.player.body.setSize(44, 44);
+        this.player.body.setOffset(2, 46);
 
         // --- Define Animations ---
         // Grid has 56 columns and 20 rows
@@ -148,6 +164,18 @@ export class MainScene extends Scene {
 
         this.events.on('shutdown', () => {
             window.removeEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
+        });
+
+        // 10. Auto-Save Position Loop (Every 1 second)
+        this.time.addEvent({
+            delay: 1000,
+            loop: true,
+            callback: () => {
+                if (this.player && this.worldId) {
+                    localStorage.setItem(`vivarium_pos_x_${this.worldId}`, this.player.x);
+                    localStorage.setItem(`vivarium_pos_y_${this.worldId}`, this.player.y);
+                }
+            },
         });
     }
 
