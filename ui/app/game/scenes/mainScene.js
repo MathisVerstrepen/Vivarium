@@ -5,6 +5,7 @@ export class MainScene extends Scene {
         super({ key: 'MainScene' });
         this.player = null;
         this.cursors = null;
+        this.isFreeCam = false;
     }
 
     preload() {
@@ -19,7 +20,6 @@ export class MainScene extends Scene {
         this.load.tilemapTiledJSON('map-key', '/maps/world.json');
 
         // 3. Load Player Sprite
-        // Ensure you have a file at this path, or Phaser will render a green placeholder box.
         this.load.image('player', '/sprites/player.png');
     }
 
@@ -47,7 +47,6 @@ export class MainScene extends Scene {
         const collisionsLayer = map.createLayer('Collisions', tilesetCollisions, 0, 0);
 
         // 4. Create Player
-        // Spawning in the center of the map for now.
         const spawnX = map.widthInPixels / 2;
         const spawnY = map.heightInPixels / 2;
 
@@ -65,8 +64,6 @@ export class MainScene extends Scene {
 
         // 6. Camera Setup
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-
-        // Camera follows the player
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
         // 7. Input Events: Zoom
@@ -82,37 +79,74 @@ export class MainScene extends Scene {
         // 8. Initialize Keyboard Controls
         this.cursors = this.input.keyboard.createCursorKeys();
 
-        // If you want WASD as well:
         this.wasd = this.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.Z,
             down: Phaser.Input.Keyboard.KeyCodes.S,
             left: Phaser.Input.Keyboard.KeyCodes.Q,
             right: Phaser.Input.Keyboard.KeyCodes.D,
         });
+
+        // 9. Event Listeners (UI Bridge)
+        this.handleFreeCamToggle = () => {
+            this.isFreeCam = !this.isFreeCam;
+            if (this.isFreeCam) {
+                this.cameras.main.stopFollow();
+                this.player.setVelocity(0);
+            } else {
+                this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+            }
+        };
+
+        window.addEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
+
+        // Cleanup listener on scene shutdown
+        this.events.on('shutdown', () => {
+            window.removeEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
+        });
     }
 
     update() {
         if (!this.player || !this.cursors) return;
 
-        const speed = 200; // Movement speed
-        this.player.setVelocity(0);
+        if (this.isFreeCam) {
+            // --- Free Cam Logic ---
+            const cameraSpeed = 10; // Pixels per frame (approx)
+            // Adjust speed based on zoom so it doesn't feel too fast when zoomed in
+            const adjustedSpeed = cameraSpeed / this.cameras.main.zoom;
 
-        // Horizontal Movement
-        if (this.cursors.left.isDown || this.wasd.left.isDown) {
-            this.player.setVelocityX(-speed);
-        } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
-            this.player.setVelocityX(speed);
-        }
+            if (this.cursors.left.isDown || this.wasd.left.isDown) {
+                this.cameras.main.scrollX -= adjustedSpeed;
+            } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+                this.cameras.main.scrollX += adjustedSpeed;
+            }
 
-        // Vertical Movement
-        if (this.cursors.up.isDown || this.wasd.up.isDown) {
-            this.player.setVelocityY(-speed);
-        } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
-            this.player.setVelocityY(speed);
-        }
+            if (this.cursors.up.isDown || this.wasd.up.isDown) {
+                this.cameras.main.scrollY -= adjustedSpeed;
+            } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
+                this.cameras.main.scrollY += adjustedSpeed;
+            }
+        } else {
+            // --- Player Movement Logic ---
+            const speed = 200;
+            this.player.setVelocity(0);
 
-        if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
-            this.player.body.velocity.normalize().scale(speed);
+            // Horizontal Movement
+            if (this.cursors.left.isDown || this.wasd.left.isDown) {
+                this.player.setVelocityX(-speed);
+            } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+                this.player.setVelocityX(speed);
+            }
+
+            // Vertical Movement
+            if (this.cursors.up.isDown || this.wasd.up.isDown) {
+                this.player.setVelocityY(-speed);
+            } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
+                this.player.setVelocityY(speed);
+            }
+
+            if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+                this.player.body.velocity.normalize().scale(speed);
+            }
         }
     }
 }
