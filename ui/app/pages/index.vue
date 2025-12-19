@@ -1,23 +1,20 @@
 <script setup lang="ts">
-const config = useRuntimeConfig();
+const { fetchWorlds, createWorld } = useApi();
 
-const { data: worlds, refresh } = await useFetch(`${config.public.apiUrl}/worlds`);
+const { data: worlds, refresh } = await fetchWorlds();
 
 const newWorldName = ref('');
 const isCreating = ref(false);
 
-const createWorld = async () => {
+const handleCreateWorld = async () => {
     if (!newWorldName.value) return;
     isCreating.value = true;
     try {
-        await $fetch(`${config.public.apiUrl}/worlds`, {
-            method: 'POST',
-            body: { name: newWorldName.value },
-        });
+        await createWorld(newWorldName.value);
         newWorldName.value = '';
         refresh();
     } catch (e) {
-        console.error(e);
+        console.error('Failed to create world:', e);
     } finally {
         isCreating.value = false;
     }
@@ -62,7 +59,7 @@ const createWorld = async () => {
 
             <!-- Create New World -->
             <div class="mt-8 border-t border-stone-600 pt-6">
-                <form @submit.prevent="createWorld" class="flex gap-4">
+                <form @submit.prevent="handleCreateWorld" class="flex gap-4">
                     <input
                         v-model="newWorldName"
                         type="text"

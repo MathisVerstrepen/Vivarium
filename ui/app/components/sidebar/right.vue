@@ -2,10 +2,14 @@
 const route = useRoute();
 const worldId = computed(() => parseInt(route.params.id as string));
 
+const { fetchAgents } = useApi();
+
+const { data: agents, refresh } = await fetchAgents(worldId.value);
+
 const showCreateModal = ref(false);
 
 const handleAgentCreated = () => {
-    console.log('Agent created, refreshing list...');
+    refresh();
 };
 </script>
 
@@ -32,8 +36,25 @@ const handleAgentCreated = () => {
                     + Create New Agent
                 </button>
 
-                <div class="mt-4 text-center font-serif text-amber-300/40 italic">
-                    Agent List Coming Soon...
+                <div class="mt-4 flex-1 overflow-y-auto">
+                    <h3 class="mb-2 font-serif font-bold text-amber-200">Population</h3>
+
+                    <div v-if="agents && agents.length > 0" class="flex flex-col gap-2">
+                        <div
+                            v-for="agent in agents"
+                            :key="agent.id"
+                            class="rounded border border-amber-700 bg-amber-800/50 p-3"
+                        >
+                            <div class="font-bold text-amber-100">{{ agent.name }}</div>
+                            <div class="truncate text-xs text-amber-300/60">
+                                {{ agent.current_situation }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="text-center font-serif text-amber-300/40 italic">
+                        No agents in this world yet.
+                    </div>
                 </div>
             </div>
         </div>
