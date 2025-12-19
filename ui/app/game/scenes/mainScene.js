@@ -1,4 +1,4 @@
-import { Scene, Math as PhaserMath } from 'phaser';
+import Phaser, { Scene, Math as PhaserMath } from 'phaser';
 
 export class MainScene extends Scene {
     constructor() {
@@ -41,9 +41,9 @@ export class MainScene extends Scene {
         ];
 
         // 3. Create Layers
-        const groundLayer = map.createLayer('Ground', tilesets, 0, 0);
-        const baseLayer = map.createLayer('Base', tilesets, 0, 0);
-        const objectsLayer = map.createLayer('Objects', tilesets, 0, 0);
+        map.createLayer('Ground', tilesets, 0, 0);
+        map.createLayer('Base', tilesets, 0, 0);
+        map.createLayer('Objects', tilesets, 0, 0);
         const collisionsLayer = map.createLayer('Collisions', tilesetCollisions, 0, 0);
 
         // 4. Create Player
@@ -55,7 +55,7 @@ export class MainScene extends Scene {
         this.player.setDepth(10);
 
         // 5. Set collisions
-        collisionsLayer.setCollisionByProperty({ collides: true });
+        collisionsLayer.setCollisionByExclusion([-1]);
         collisionsLayer.setVisible(false);
 
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -70,7 +70,7 @@ export class MainScene extends Scene {
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
         // 7. Input Events: Zoom
-        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
             const zoomDirection = deltaY > 0 ? -1 : 1;
             const zoomStep = 0.1;
 
@@ -111,7 +111,8 @@ export class MainScene extends Scene {
             this.player.setVelocityY(speed);
         }
 
-        // Normalize and scale velocity so that diagonal movement isn't faster
-        this.player.body.velocity.normalize().scale(speed);
+        if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+            this.player.body.velocity.normalize().scale(speed);
+        }
     }
 }
