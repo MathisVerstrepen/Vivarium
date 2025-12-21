@@ -241,16 +241,14 @@ async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
     if not agent_db:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    # Hydrate
+    # 1. Hydrate
     agent_service = hydrate_agent_service(memory_store, agent_db)
 
-    # Player speaks
+    # 2. Update Service State
     agent_service.listen(req.message, "Player")
-
-    # Agent responds (Targeting 'Player')
     output = agent_service.act("Player")
 
-    # Save memory
+    # 3. Save
     crud.update_agent_memory(
         db,
         agent_id=agent_db.id,

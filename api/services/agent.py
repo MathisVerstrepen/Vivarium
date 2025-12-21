@@ -61,8 +61,6 @@ class Agent:
         else:
             query_context = f"Who is {other_agent_name}? {self.situation}"
 
-        print("[DEBUG] Querying LTM with context:\n", query_context)
-
         retrieved_memories = self.memory_store.retrieve_relevant_memories(
             agent_name=self.profile.identity.name, query_text=query_context, limit=5
         )
@@ -185,6 +183,8 @@ class Agent:
         
         It is your turn to speak to {other_agent_name}. Respond now.
         """
+
+        print(f"[DEBUG] Acting with prompt:\n{user_prompt}\n")
 
         response = run_llm_with_schema(
             user_prompt=user_prompt,

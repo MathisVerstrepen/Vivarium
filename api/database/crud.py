@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
 
 from database.models import WorldModel, AgentModel
@@ -93,9 +94,13 @@ def update_agent_memory(
     """
     agent = get_agent(db, agent_id)
     if agent:
-        agent.short_term_memory = short_term_mem
+        agent.short_term_memory = list(short_term_mem)
+
+        flag_modified(agent, "short_term_memory")
+
         if mid_term_mem is not None:
-            agent.mid_term_memory = mid_term_mem
+            agent.mid_term_memory = list(mid_term_mem)
+            flag_modified(agent, "mid_term_memory")
 
         db.commit()
         db.refresh(agent)
@@ -108,7 +113,10 @@ def append_agent_short_term_memory(db: Session, agent_id: int, message: str):
     """
     agent = get_agent(db, agent_id)
     if agent:
-        current_mem = list(agent.short_term_memory)
+        current_mem = list(agent.short_term_memory) if agent.short_term_memory else []
         current_mem.append(message)
+
         agent.short_term_memory = current_mem
+        flag_modified(agent, "short_term_memory")
+
         db.commit()
