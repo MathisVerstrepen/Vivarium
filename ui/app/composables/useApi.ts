@@ -7,6 +7,7 @@ import type {
     InteractionResponse,
     WhisperRequest,
     AgentProfile,
+    ChatResponse,
 } from '~/types/vivarium';
 
 export const useApi = () => {
@@ -84,6 +85,13 @@ export const useApi = () => {
         });
     };
 
+    const chatWithAgent = async (agentId: number, message: string): Promise<ChatResponse> => {
+        return await $fetch<ChatResponse>(`${baseUrl}/agent/chat`, {
+            method: 'POST',
+            body: { agent_id: agentId, message },
+        });
+    };
+
     return {
         fetchWorlds,
         createWorld,
@@ -95,5 +103,6 @@ export const useApi = () => {
         deleteAgent,
         interact,
         whisper,
+        chatWithAgent,
     };
 };

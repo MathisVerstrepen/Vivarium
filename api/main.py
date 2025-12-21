@@ -18,6 +18,8 @@ from schemas.api_dtos import (
     InteractionResponse,
     WhisperRequest,
     AgentStateResponse,
+    ChatRequest,
+    ChatResponse,
 )
 
 # Services
@@ -123,6 +125,7 @@ async def get_agent_detail(agent_id: int, db: Session = Depends(get_db)):
 
     return AgentStateResponse(
         id=agent_db.id,
+        name=agent_db.name,
         profile=profile,
         short_term_memory=stm,
         mid_term_memory=mtm,
@@ -145,6 +148,7 @@ async def update_agent(
 
     return AgentStateResponse(
         id=updated_agent.id,
+        name=updated_agent.name,
         profile=AgentProfile.model_validate(updated_agent.profile_json),
         short_term_memory=stm,
         mid_term_memory=mtm,
@@ -226,3 +230,32 @@ async def whisper(req: WhisperRequest, db: Session = Depends(get_db)):
     )
 
     return {"status": "success"}
+
+
+@app.post("/agent/chat", response_model=ChatResponse)
+async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
+    """
+    Direct Player -> Agent interaction.
+    """
+    agent_db = crud.get_agent(db, req.agent_id)
+    if not agent_db:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Hydrate
+    agent_service = hydrate_agent_service(memory_store, agent_db)
+
+    # Player speaks
+    agent_service.listen(req.message, "Player")
+
+    # Agent responds (Targeting 'Player')
+    output = agent_service.act("Player")
+
+    # Save memory
+    crud.update_agent_memory(
+        db,
+        agent_id=agent_db.id,
+        short_term_mem=agent_service.short_term_memory,
+        mid_term_mem=agent_service.mid_term_memory,
+    )
+
+    return ChatResponse(agent_id=agent_db.id, agent_name=agent_db.name, response=output)

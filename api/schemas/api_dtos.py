@@ -51,8 +51,20 @@ class WhisperRequest(BaseModel):
     content: str
 
 
+class ChatRequest(BaseModel):
+    agent_id: int
+    message: str
+
+
+class ChatResponse(BaseModel):
+    agent_id: int
+    agent_name: str
+    response: AgentOutput
+
+
 class AgentStateResponse(BaseModel):
     id: int
+    name: str
     profile: AgentProfile
     short_term_memory: List[str]
     mid_term_memory: List[str]

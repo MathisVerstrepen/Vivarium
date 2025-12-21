@@ -212,6 +212,12 @@ export class MainScene extends Scene {
         sprite.setTint(0xffaaaa);
         sprite.setFrame(3);
 
+        // INTERACTION SETUP
+        sprite.setInteractive({ cursor: 'pointer' });
+        sprite.on('pointerdown', () => {
+            window.dispatchEvent(new CustomEvent('vivarium-agent-selected', { detail: agent.id }));
+        });
+
         // Add label
         const label = this.add
             .text(x, y - 50, agent.name, {

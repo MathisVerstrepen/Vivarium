@@ -104,3 +104,9 @@ export interface WhisperRequest {
     agent_id: number;
     content: string;
 }
+
+export interface ChatResponse {
+    agent_id: number;
+    agent_name: string;
+    response: AgentOutput;
+}
