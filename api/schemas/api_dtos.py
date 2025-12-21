@@ -19,6 +19,8 @@ class CreateAgentRequest(BaseModel):
     world_id: int
     profile: AgentProfile
     initial_situation: Optional[str] = "You are standing in the world."
+    x: Optional[float] = 400.0
+    y: Optional[float] = 300.0
 
 
 class AgentResponse(BaseModel):
@@ -26,6 +28,8 @@ class AgentResponse(BaseModel):
     world_id: int
     name: str
     current_situation: str
+    x: float
+    y: float
 
 
 # --- INTERACTION DTOs ---
@@ -53,3 +57,5 @@ class AgentStateResponse(BaseModel):
     short_term_memory: List[str]
     mid_term_memory: List[str]
     current_situation: str
+    x: float
+    y: float

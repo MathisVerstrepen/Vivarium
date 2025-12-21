@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database.database import Base
@@ -23,6 +23,10 @@ class AgentModel(Base):
     id: int = Column(Integer, primary_key=True, index=True)
     world_id: int = Column(Integer, ForeignKey("worlds.id"))
     name: str = Column(String, index=True)
+
+    # Coordinates
+    x: float = Column(Float, default=100.0)
+    y: float = Column(Float, default=100.0)
 
     profile_json: Any = Column(JSON)
 

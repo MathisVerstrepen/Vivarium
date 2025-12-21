@@ -7,6 +7,8 @@ export class MainScene extends Scene {
         this.cursors = null;
         this.isFreeCam = false;
         this.worldId = null;
+        this.agentsGroup = null;
+        this.agentMap = new Map();
     }
 
     init(data) {
@@ -65,6 +67,11 @@ export class MainScene extends Scene {
         this.player.setDepth(10);
         this.player.body.setSize(44, 44);
         this.player.body.setOffset(2, 46);
+
+        // 5. Create Agent Group
+        this.agentsGroup = this.physics.add.group();
+        this.physics.add.collider(this.agentsGroup, collisionsLayer);
+        this.physics.add.collider(this.player, this.agentsGroup);
 
         // --- Define Animations ---
         // Grid has 56 columns and 20 rows
@@ -140,26 +147,30 @@ export class MainScene extends Scene {
             }
         };
 
-        // 2. Input Capture (New)
+        // 2. Input Capture
         this.handleInputCapture = (e) => {
-            const shouldCapture = e.detail; // true = UI has focus, false = Game has focus
-
-            // Toggle Phaser Keyboard
+            const shouldCapture = e.detail;
             this.input.keyboard.enabled = !shouldCapture;
-
-            // If UI took over, stop the player immediately so they don't drift
             if (shouldCapture && this.player && this.player.body) {
                 this.player.setVelocity(0);
                 this.player.anims.stop();
             }
         };
 
+        // 3. Handle Agent Spawn Event (from Vue)
+        this.handleAgentSpawn = (e) => {
+            const agentData = e.detail;
+            this.spawnAgent(agentData);
+        };
+
         window.addEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
         window.addEventListener('vivarium-input-capture', this.handleInputCapture);
+        window.addEventListener('vivarium-agent-spawned', this.handleAgentSpawn);
 
         this.events.on('shutdown', () => {
             window.removeEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
             window.removeEventListener('vivarium-input-capture', this.handleInputCapture);
+            window.removeEventListener('vivarium-agent-spawned', this.handleAgentSpawn);
         });
 
         this.time.addEvent({
@@ -172,9 +183,56 @@ export class MainScene extends Scene {
                 }
             },
         });
+
+        // --- INITIAL AGENT LOAD ---
+        this.loadAgents();
+    }
+
+    async loadAgents() {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/worlds/${this.worldId}/agents`);
+            const agents = await response.json();
+            agents.forEach((agent) => this.spawnAgent(agent));
+        } catch (e) {
+            console.error('Failed to load initial agents', e);
+        }
+    }
+
+    spawnAgent(agent) {
+        if (this.agentMap.has(agent.id)) return;
+
+        const x = agent.x || 400;
+        const y = agent.y || 400;
+
+        const sprite = this.agentsGroup.create(x, y, 'player');
+        sprite.setDepth(9);
+        sprite.body.setSize(44, 44);
+        sprite.body.setOffset(2, 46);
+        sprite.setImmovable(true);
+        sprite.setTint(0xffaaaa);
+        sprite.setFrame(3);
+
+        // Add label
+        const label = this.add
+            .text(x, y - 50, agent.name, {
+                font: '12px Arial',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3,
+            })
+            .setOrigin(0.5);
+
+        sprite.label = label;
+        this.agentMap.set(agent.id, sprite);
     }
 
     update() {
+        this.agentMap.forEach((sprite) => {
+            if (sprite.label) {
+                sprite.label.setPosition(sprite.x, sprite.y - 50);
+            }
+        });
+
         if (!this.player || !this.cursors) return;
 
         // If keyboard is disabled (UI is open), stop update logic

@@ -27,18 +27,25 @@ def get_world_by_id(db: Session, world_id: int) -> Optional[WorldModel]:
 
 
 def create_agent(
-    db: Session, world_id: int, profile: AgentProfile, initial_situation: str
+    db: Session,
+    world_id: int,
+    profile: AgentProfile,
+    initial_situation: str,
+    x: float = 400.0,
+    y: float = 300.0,
 ) -> AgentModel:
     """
-    Creates a new agent. Serializes the Pydantic profile into JSON.
+    Creates a new agent with spatial coordinates.
     """
     db_agent = AgentModel(
         world_id=world_id,
         name=profile.identity.name,
-        profile_json=profile.model_dump(),  # Serialize Pydantic to JSON
+        profile_json=profile.model_dump(),
         current_situation=initial_situation,
         short_term_memory=[],
         mid_term_memory=[],
+        x=x,
+        y=y,
     )
     db.add(db_agent)
     db.commit()

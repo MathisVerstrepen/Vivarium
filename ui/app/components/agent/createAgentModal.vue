@@ -133,11 +133,19 @@ const handleSubmit = async () => {
             emit('updated');
         } else {
             // Create
-            await createAgent({
+            const storedX = localStorage.getItem(`vivarium_pos_x_${props.worldId}`);
+            const storedY = localStorage.getItem(`vivarium_pos_y_${props.worldId}`);
+
+            const newAgent = await createAgent({
                 world_id: props.worldId,
                 profile: form,
                 initial_situation: 'Just arrived in the world.',
+                x: storedX ? parseFloat(storedX) + 50 : 400,
+                y: storedY ? parseFloat(storedY) + 50 : 300,
             });
+
+            window.dispatchEvent(new CustomEvent('vivarium-agent-spawned', { detail: newAgent }));
+
             emit('created');
             // Only reset on create success
             resetForm();

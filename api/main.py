@@ -79,6 +79,8 @@ async def create_agent(req: CreateAgentRequest, db: Session = Depends(get_db)):
         world_id=req.world_id,
         profile=req.profile,
         initial_situation=req.initial_situation or "",
+        x=req.x if req.x is not None else 400.0,
+        y=req.y if req.y is not None else 300.0,
     )
 
     return AgentResponse(
@@ -86,6 +88,8 @@ async def create_agent(req: CreateAgentRequest, db: Session = Depends(get_db)):
         world_id=db_agent.world_id,
         name=db_agent.name,
         current_situation=db_agent.current_situation,
+        x=db_agent.x,
+        y=db_agent.y,
     )
 
 
@@ -98,6 +102,8 @@ async def list_agents_in_world(world_id: int, db: Session = Depends(get_db)):
             world_id=a.world_id,
             name=a.name,
             current_situation=a.current_situation,
+            x=a.x,
+            y=a.y,
         )
         for a in agents
     ]
@@ -121,6 +127,8 @@ async def get_agent_detail(agent_id: int, db: Session = Depends(get_db)):
         short_term_memory=stm,
         mid_term_memory=mtm,
         current_situation=agent_db.current_situation,
+        x=agent_db.x,
+        y=agent_db.y,
     )
 
 
@@ -141,6 +149,8 @@ async def update_agent(
         short_term_memory=stm,
         mid_term_memory=mtm,
         current_situation=updated_agent.current_situation,
+        x=updated_agent.x,
+        y=updated_agent.y,
     )
 
 

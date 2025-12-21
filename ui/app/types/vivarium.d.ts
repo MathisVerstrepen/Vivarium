@@ -67,6 +67,8 @@ export interface Agent {
     world_id: number;
     name: string;
     current_situation: string;
+    x: number;
+    y: number;
 }
 
 export interface AgentDetail extends Agent {
@@ -79,6 +81,8 @@ export interface CreateAgentRequest {
     world_id: number;
     profile: AgentProfile;
     initial_situation?: string;
+    x?: number;
+    y?: number;
 }
 
 export interface AgentOutput {
