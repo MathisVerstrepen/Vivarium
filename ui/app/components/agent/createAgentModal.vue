@@ -1,16 +1,21 @@
 <script setup lang="ts">
+import type { AgentDetail, AgentProfile } from '~/types/vivarium';
+
 const props = defineProps<{
     worldId: number;
     isOpen: boolean;
+    agentToEdit?: AgentDetail | null;
 }>();
 
-const emit = defineEmits(['close', 'created']);
+const emit = defineEmits(['close', 'created', 'updated']);
 
-const config = useRuntimeConfig();
+const { createAgent, updateAgent } = useApi();
 const isLoading = ref(false);
 
+const isEditMode = computed(() => !!props.agentToEdit);
+
 // --- Form State ---
-const form = reactive({
+const form = reactive<AgentProfile>({
     identity: {
         name: '',
         age: 25,
@@ -49,6 +54,30 @@ const form = reactive({
     },
 });
 
+// --- Populate Form on Edit ---
+watch(
+    () => props.agentToEdit,
+    (agent) => {
+        if (agent && agent.profile) {
+            Object.assign(form, JSON.parse(JSON.stringify(agent.profile)));
+        } else {
+            resetForm();
+        }
+    },
+    { immediate: true },
+);
+
+function resetForm() {
+    form.identity = {
+        name: '',
+        age: 25,
+        gender: 'Non-binary',
+        occupation: '',
+        backstory: '',
+    };
+    form.emotions.triggers = [];
+}
+
 // --- UI Logic ---
 const activeTab = ref('identity');
 const tabs = [
@@ -84,44 +113,40 @@ const toggleGameInput = (disable: boolean) => {
     window.dispatchEvent(new CustomEvent('vivarium-input-capture', { detail: disable }));
 };
 
-onMounted(() => {
-    toggleGameInput(true);
-});
-
-onUnmounted(() => {
-    toggleGameInput(false);
-});
-
 watch(
     () => props.isOpen,
     (newVal) => {
         toggleGameInput(newVal);
+        if (!newVal) {
+            activeTab.value = 'identity';
+        }
     },
 );
 
 // --- Submission ---
-const submitAgent = async () => {
+const handleSubmit = async () => {
     isLoading.value = true;
     try {
-        await $fetch(`${config.public.apiUrl}/agents`, {
-            method: 'POST',
-            body: {
+        if (isEditMode.value && props.agentToEdit) {
+            // Update
+            await updateAgent(props.agentToEdit.id, form);
+            emit('updated');
+        } else {
+            // Create
+            await createAgent({
                 world_id: props.worldId,
                 profile: form,
                 initial_situation: 'Just arrived in the world.',
-            },
-        });
-        emit('created');
-        emit('close');
+            });
+            emit('created');
+            // Only reset on create success
+            resetForm();
+        }
 
-        // Reset essential fields
-        form.identity.name = '';
-        form.identity.occupation = '';
-        form.identity.backstory = '';
-        form.emotions.triggers = [];
+        emit('close');
     } catch (e) {
         console.error(e);
-        alert('Failed to create agent');
+        alert(`Failed to ${isEditMode.value ? 'update' : 'create'} agent`);
     } finally {
         isLoading.value = false;
     }
@@ -150,9 +175,11 @@ const submitAgent = async () => {
                         class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500
                             font-bold text-amber-900"
                     >
-                        +
+                        {{ isEditMode ? '✎' : '+' }}
                     </div>
-                    <h2 class="font-serif text-2xl font-bold tracking-wide">Construct New Agent</h2>
+                    <h2 class="font-serif text-2xl font-bold tracking-wide">
+                        {{ isEditMode ? 'Edit Agent Personality' : 'Construct New Agent' }}
+                    </h2>
                 </div>
                 <button
                     @click="$emit('close')"
@@ -183,7 +210,7 @@ const submitAgent = async () => {
 
             <!-- Scrollable Form Body -->
             <div class="flex-1 overflow-y-auto bg-stone-100 p-8">
-                <form @submit.prevent="submitAgent" class="mx-auto max-w-3xl space-y-8">
+                <form @submit.prevent="handleSubmit" class="mx-auto max-w-3xl space-y-8">
                     <!-- TAB: IDENTITY -->
                     <section
                         v-show="activeTab === 'identity'"
@@ -247,7 +274,6 @@ const submitAgent = async () => {
                                 text-amber-900"
                         >
                             The <strong>Big Five</strong> model defines the core personality traits.
-                            Values range from 0.0 (Low) to 1.0 (High).
                         </div>
                         <div class="space-y-6">
                             <div
@@ -301,8 +327,7 @@ const submitAgent = async () => {
                             class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm
                                 text-amber-900"
                         >
-                            <strong>Moral Foundations Theory</strong>. How much does this agent
-                            value these specific virtues?
+                            <strong>Moral Foundations Theory</strong>.
                         </div>
                         <div class="grid grid-cols-1 gap-4">
                             <div
@@ -384,9 +409,6 @@ const submitAgent = async () => {
                                         step="0.1"
                                         class="range-slider w-full"
                                     />
-                                    <p class="mt-1 text-xs text-stone-500">
-                                        0 = Stoic, 1 = Highly Reactive
-                                    </p>
                                 </div>
                                 <div class="col-span-2">
                                     <label class="label">Triggers</label>
@@ -521,7 +543,11 @@ const submitAgent = async () => {
             <div class="border-t-2 border-stone-300 bg-stone-200 px-8 py-4">
                 <div class="flex items-center justify-between">
                     <div class="text-sm text-stone-500 italic">
-                        "To simulate life, one must first define the soul."
+                        {{
+                            isEditMode
+                                ? '"People change, even artificial ones."'
+                                : '"To simulate life, one must first define the soul."'
+                        }}
                     </div>
                     <div class="flex gap-4">
                         <button
@@ -532,13 +558,19 @@ const submitAgent = async () => {
                             Cancel
                         </button>
                         <button
-                            @click="submitAgent"
+                            @click="handleSubmit"
                             :disabled="isLoading"
                             class="rounded bg-amber-700 px-8 py-2 font-bold text-white shadow-lg
                                 transition-all hover:bg-amber-600 hover:shadow-xl
                                 active:translate-y-0.5 disabled:opacity-50"
                         >
-                            {{ isLoading ? 'Birthing...' : 'Create Agent' }}
+                            {{
+                                isLoading
+                                    ? 'Processing...'
+                                    : isEditMode
+                                      ? 'Save Changes'
+                                      : 'Create Agent'
+                            }}
                         </button>
                     </div>
                 </div>

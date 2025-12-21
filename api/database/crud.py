@@ -54,6 +54,27 @@ def get_agents_by_world(db: Session, world_id: int) -> List[AgentModel]:
     return db.query(AgentModel).filter(AgentModel.world_id == world_id).all()
 
 
+def update_agent_profile(
+    db: Session, agent_id: int, new_profile: AgentProfile
+) -> Optional[AgentModel]:
+    agent = get_agent(db, agent_id)
+    if agent:
+        agent.name = new_profile.identity.name
+        agent.profile_json = new_profile.model_dump()
+        db.commit()
+        db.refresh(agent)
+    return agent
+
+
+def delete_agent(db: Session, agent_id: int) -> bool:
+    agent = get_agent(db, agent_id)
+    if agent:
+        db.delete(agent)
+        db.commit()
+        return True
+    return False
+
+
 def update_agent_memory(
     db: Session,
     agent_id: int,

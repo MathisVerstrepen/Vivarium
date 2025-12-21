@@ -124,6 +124,34 @@ async def get_agent_detail(agent_id: int, db: Session = Depends(get_db)):
     )
 
 
+@app.put("/agents/{agent_id}", response_model=AgentStateResponse)
+async def update_agent(
+    agent_id: int, profile: AgentProfile, db: Session = Depends(get_db)
+):
+    updated_agent = crud.update_agent_profile(db, agent_id, profile)
+    if not updated_agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    stm = cast(List[str], updated_agent.short_term_memory)
+    mtm = cast(List[str], updated_agent.mid_term_memory)
+
+    return AgentStateResponse(
+        id=updated_agent.id,
+        profile=AgentProfile.model_validate(updated_agent.profile_json),
+        short_term_memory=stm,
+        mid_term_memory=mtm,
+        current_situation=updated_agent.current_situation,
+    )
+
+
+@app.delete("/agents/{agent_id}")
+async def delete_agent(agent_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_agent(db, agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {"status": "success", "id": agent_id}
+
+
 # 3. INTERACTION LOOP
 
 

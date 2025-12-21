@@ -6,6 +6,7 @@ import type {
     CreateAgentRequest,
     InteractionResponse,
     WhisperRequest,
+    AgentProfile,
 } from '~/types/vivarium';
 
 export const useApi = () => {
@@ -35,16 +36,35 @@ export const useApi = () => {
         });
     };
 
+    // Reactive fetch for component setup
     const getAgentDetail = (agentId: number) => {
         return useFetch<AgentDetail>(`${baseUrl}/agents/${agentId}`, {
             key: `agent-${agentId}-detail`,
         });
     };
 
+    // Imperative fetch for event handlers (e.g., clicking Edit)
+    const fetchAgentDetailRaw = async (agentId: number): Promise<AgentDetail> => {
+        return await $fetch<AgentDetail>(`${baseUrl}/agents/${agentId}`);
+    };
+
     const createAgent = async (req: CreateAgentRequest): Promise<Agent> => {
         return await $fetch<Agent>(`${baseUrl}/agents`, {
             method: 'POST',
             body: req,
+        });
+    };
+
+    const updateAgent = async (agentId: number, profile: AgentProfile): Promise<AgentDetail> => {
+        return await $fetch<AgentDetail>(`${baseUrl}/agents/${agentId}`, {
+            method: 'PUT',
+            body: profile,
+        });
+    };
+
+    const deleteAgent = async (agentId: number): Promise<void> => {
+        await $fetch(`${baseUrl}/agents/${agentId}`, {
+            method: 'DELETE',
         });
     };
 
@@ -69,7 +89,10 @@ export const useApi = () => {
         createWorld,
         fetchAgents,
         getAgentDetail,
+        fetchAgentDetailRaw,
         createAgent,
+        updateAgent,
+        deleteAgent,
         interact,
         whisper,
     };
