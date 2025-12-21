@@ -71,3 +71,12 @@ class AgentStateResponse(BaseModel):
     current_situation: str
     x: float
     y: float
+
+
+class EndChatRequest(BaseModel):
+    agent_id: int
+
+
+class EndChatResponse(BaseModel):
+    agent_id: int
+    memories_created: List[str]

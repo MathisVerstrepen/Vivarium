@@ -7,11 +7,12 @@ const props = defineProps<{
 
 const emit = defineEmits(['close']);
 
-const { fetchAgentDetailRaw, chatWithAgent } = useApi();
+const { fetchAgentDetailRaw, chatWithAgent, endChat } = useApi();
 
 const agent = ref<AgentDetail | null>(null);
 const isLoading = ref(false);
 const isSending = ref(false);
+const isEnding = ref(false);
 const playerMessage = ref('');
 
 // We store the session chat locally for display
@@ -80,6 +81,30 @@ const scrollToBottom = () => {
     });
 };
 
+const handleEndConversation = async () => {
+    if (!agent.value) return;
+
+    if (
+        !confirm(
+            'End conversation? The agent will reflect on your words and form long-term memories.',
+        )
+    ) {
+        return;
+    }
+
+    isEnding.value = true;
+    try {
+        const result = await endChat(agent.value.id);
+        console.log('Memories formed:', result.memories_created);
+        emit('close');
+    } catch (e) {
+        console.error('Failed to end chat gracefully', e);
+        emit('close');
+    } finally {
+        isEnding.value = false;
+    }
+};
+
 // Capture Input when open
 watch(
     () => props.agentId,
@@ -122,9 +147,26 @@ const closeChat = () => {
                     }}</span>
                 </div>
             </div>
-            <button @click="closeChat" class="text-xl font-bold text-stone-400 hover:text-white">
-                &times;
-            </button>
+
+            <div class="flex items-center gap-2">
+                <!-- END CONVERSATION BUTTON -->
+                <button
+                    @click="handleEndConversation"
+                    :disabled="isEnding || isSending"
+                    class="rounded border border-red-800 bg-red-900/50 px-3 py-1 text-xs font-bold
+                        text-red-200 transition-colors hover:bg-red-800 disabled:opacity-50"
+                    title="End conversation and form memories"
+                >
+                    {{ isEnding ? 'Saving...' : 'End & Remember' }}
+                </button>
+
+                <button
+                    @click="closeChat"
+                    class="ml-2 text-xl font-bold text-stone-400 hover:text-white"
+                >
+                    &times;
+                </button>
+            </div>
         </div>
 
         <!-- Chat Area -->

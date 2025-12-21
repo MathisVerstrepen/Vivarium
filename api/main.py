@@ -20,6 +20,8 @@ from schemas.api_dtos import (
     AgentStateResponse,
     ChatRequest,
     ChatResponse,
+    EndChatRequest,
+    EndChatResponse,
 )
 
 # Services
@@ -257,3 +259,35 @@ async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
     )
 
     return ChatResponse(agent_id=agent_db.id, agent_name=agent_db.name, response=output)
+
+
+@app.post("/agent/chat/end", response_model=EndChatResponse)
+async def end_chat_session(req: EndChatRequest, db: Session = Depends(get_db)):
+    """
+    Ends the conversation.
+    1. Triggers Long-Term Memory extraction (summarizing the chat into facts).
+    2. Saves facts to Vector DB.
+    3. Clears Short-Term Memory in SQL DB.
+    """
+    agent_db = crud.get_agent(db, req.agent_id)
+    if not agent_db:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # 1. Hydrate Service
+    agent_service = hydrate_agent_service(memory_store, agent_db)
+
+    # 2. Extract Memories
+    extraction = agent_service.process_conversation_end()
+
+    # 3. Clear Internal Service State
+    agent_service.clear_memory()
+
+    # 4. Update SQL Database
+    crud.update_agent_memory(
+        db,
+        agent_id=agent_db.id,
+        short_term_mem=[],
+        mid_term_mem=agent_service.mid_term_memory,
+    )
+
+    return EndChatResponse(agent_id=agent_db.id, memories_created=extraction.facts)

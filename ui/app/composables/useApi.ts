@@ -8,6 +8,7 @@ import type {
     WhisperRequest,
     AgentProfile,
     ChatResponse,
+    EndChatResponse,
 } from '~/types/vivarium';
 
 export const useApi = () => {
@@ -92,6 +93,13 @@ export const useApi = () => {
         });
     };
 
+    const endChat = async (agentId: number): Promise<EndChatResponse> => {
+        return await $fetch<EndChatResponse>(`${baseUrl}/agent/chat/end`, {
+            method: 'POST',
+            body: { agent_id: agentId },
+        });
+    };
+
     return {
         fetchWorlds,
         createWorld,
@@ -104,5 +112,6 @@ export const useApi = () => {
         interact,
         whisper,
         chatWithAgent,
+        endChat,
     };
 };

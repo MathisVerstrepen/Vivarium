@@ -110,3 +110,14 @@ export interface ChatResponse {
     agent_name: string;
     response: AgentOutput;
 }
+
+export interface ChatResponse {
+    agent_id: number;
+    agent_name: string;
+    response: AgentOutput;
+}
+
+export interface EndChatResponse {
+    agent_id: number;
+    memories_created: string[];
+}
