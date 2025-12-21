@@ -21,11 +21,7 @@ export class MainScene extends Scene {
         this.load.image('Interiors_48x48_2', '/tilesets/Interiors/Interiors_48x48_2.png');
         this.load.image('Exteriors', '/tilesets/Exteriors/Exteriors.png');
         this.load.image('collisions', '/tilesets/collisions.png');
-
-        // 2. Load the Tiled JSON
         this.load.tilemapTiledJSON('map-key', '/maps/world.json');
-
-        // 3. Load the Player Spritesheet
         this.load.spritesheet('player', '/sprites/player.png', {
             frameWidth: 48,
             frameHeight: 96,
@@ -62,16 +58,8 @@ export class MainScene extends Scene {
         const storageKeyY = `vivarium_pos_y_${this.worldId}`;
         const storedX = localStorage.getItem(storageKeyX);
         const storedY = localStorage.getItem(storageKeyY);
-
-        let spawnX, spawnY;
-
-        if (storedX && storedY) {
-            spawnX = parseFloat(storedX);
-            spawnY = parseFloat(storedY);
-        } else {
-            spawnX = map.widthInPixels / 2;
-            spawnY = map.heightInPixels / 2;
-        }
+        let spawnX = storedX ? parseFloat(storedX) : map.widthInPixels / 2;
+        let spawnY = storedY ? parseFloat(storedY) : map.heightInPixels / 2;
 
         this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
         this.player.setDepth(10);
@@ -89,7 +77,6 @@ export class MainScene extends Scene {
             frameRate: 10,
             repeat: -1,
         });
-
         this.anims.create({
             key: 'left',
             frames: this.anims.generateFrameNumbers('player', {
@@ -98,7 +85,6 @@ export class MainScene extends Scene {
             frameRate: 10,
             repeat: -1,
         });
-
         this.anims.create({
             key: 'right',
             frames: this.anims.generateFrameNumbers('player', {
@@ -107,7 +93,6 @@ export class MainScene extends Scene {
             frameRate: 12,
             repeat: -1,
         });
-
         this.anims.create({
             key: 'up',
             frames: this.anims.generateFrameNumbers('player', {
@@ -119,37 +104,32 @@ export class MainScene extends Scene {
 
         collisionsLayer.setCollisionByExclusion([-1]);
         collisionsLayer.setVisible(false);
-
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.player.setCollideWorldBounds(true);
-
         this.physics.add.collider(this.player, collisionsLayer);
 
-        // 6. Camera Setup
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-        // 7. Input Events: Zoom
+        // --- INPUT SETUP ---
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
             const zoomDirection = deltaY > 0 ? -1 : 1;
-            const zoomStep = 0.1;
-
-            const newZoom = this.cameras.main.zoom + zoomDirection * zoomStep;
-
-            this.cameras.main.zoom = PhaserMath.Clamp(newZoom, 0.5, 3);
+            const newZoom = PhaserMath.Clamp(this.cameras.main.zoom + zoomDirection * 0.1, 0.5, 3);
+            this.cameras.main.zoom = newZoom;
         });
 
-        // 8. Initialize Keyboard Controls
         this.cursors = this.input.keyboard.createCursorKeys();
-
         this.wasd = this.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.Z,
             down: Phaser.Input.Keyboard.KeyCodes.S,
             left: Phaser.Input.Keyboard.KeyCodes.Q,
             right: Phaser.Input.Keyboard.KeyCodes.D,
+            shift: Phaser.Input.Keyboard.KeyCodes.SHIFT,
         });
 
-        // 9. Event Listeners (UI Bridge)
+        // --- EVENT LISTENERS ---
+
+        // 1. Free Cam Toggle
         this.handleFreeCamToggle = () => {
             this.isFreeCam = !this.isFreeCam;
             if (this.isFreeCam) {
@@ -160,13 +140,28 @@ export class MainScene extends Scene {
             }
         };
 
+        // 2. Input Capture (New)
+        this.handleInputCapture = (e) => {
+            const shouldCapture = e.detail; // true = UI has focus, false = Game has focus
+
+            // Toggle Phaser Keyboard
+            this.input.keyboard.enabled = !shouldCapture;
+
+            // If UI took over, stop the player immediately so they don't drift
+            if (shouldCapture && this.player && this.player.body) {
+                this.player.setVelocity(0);
+                this.player.anims.stop();
+            }
+        };
+
         window.addEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
+        window.addEventListener('vivarium-input-capture', this.handleInputCapture);
 
         this.events.on('shutdown', () => {
             window.removeEventListener('vivarium-toggle-free-cam', this.handleFreeCamToggle);
+            window.removeEventListener('vivarium-input-capture', this.handleInputCapture);
         });
 
-        // 10. Auto-Save Position Loop (Every 1 second)
         this.time.addEvent({
             delay: 1000,
             loop: true,
@@ -182,26 +177,26 @@ export class MainScene extends Scene {
     update() {
         if (!this.player || !this.cursors) return;
 
+        // If keyboard is disabled (UI is open), stop update logic
+        if (!this.input.keyboard.enabled) return;
+
         if (this.isFreeCam) {
             const cameraSpeed = 10;
             const adjustedSpeed = cameraSpeed / this.cameras.main.zoom;
 
-            if (this.cursors.left.isDown || this.wasd.left.isDown) {
+            if (this.cursors.left.isDown || this.wasd.left.isDown)
                 this.cameras.main.scrollX -= adjustedSpeed;
-            } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+            else if (this.cursors.right.isDown || this.wasd.right.isDown)
                 this.cameras.main.scrollX += adjustedSpeed;
-            }
 
-            if (this.cursors.up.isDown || this.wasd.up.isDown) {
+            if (this.cursors.up.isDown || this.wasd.up.isDown)
                 this.cameras.main.scrollY -= adjustedSpeed;
-            } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
+            else if (this.cursors.down.isDown || this.wasd.down.isDown)
                 this.cameras.main.scrollY += adjustedSpeed;
-            }
         } else {
-            // Player control logic
             const baseSpeed = 200;
             const sprintSpeed = 350;
-            const isSprinting = this.cursors.shift.isDown;
+            const isSprinting = this.cursors.shift.isDown || this.wasd.shift.isDown;
             const speed = isSprinting ? sprintSpeed : baseSpeed;
 
             this.player.setVelocity(0);
