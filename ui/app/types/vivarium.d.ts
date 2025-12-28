@@ -111,13 +111,20 @@ export interface ChatResponse {
     response: AgentOutput;
 }
 
-export interface ChatResponse {
-    agent_id: number;
-    agent_name: string;
-    response: AgentOutput;
-}
-
 export interface EndChatResponse {
     agent_id: number;
     memories_created: string[];
+}
+
+// --- Memory Explorer Types ---
+export interface MemoryItem {
+    id: string;
+    content: string;
+    category: 'SELF' | 'AGENT' | 'WORLD' | 'UNKNOWN';
+    subject: string;
+}
+
+export interface MemoryExplorerResponse {
+    agent_name: string;
+    memories: MemoryItem[];
 }

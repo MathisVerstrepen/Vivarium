@@ -9,7 +9,9 @@ const { fetchAgents, fetchAgentDetailRaw, deleteAgent } = useApi();
 const { data: agents, refresh } = await fetchAgents(worldId.value);
 
 const showModal = ref(false);
+const showMemoryExplorer = ref(false);
 const selectedAgent = ref<AgentDetail | null>(null);
+const selectedAgentIdForMemory = ref<number | null>(null);
 
 // Open modal for Creation
 const openCreateModal = () => {
@@ -26,6 +28,12 @@ const openEditModal = async (agentId: number) => {
     } catch (e) {
         console.error('Failed to fetch agent details', e);
     }
+};
+
+// Open Memory Explorer
+const openMemoryExplorer = (agentId: number) => {
+    selectedAgentIdForMemory.value = agentId;
+    showMemoryExplorer.value = true;
 };
 
 const handleDelete = async (agentId: number) => {
@@ -75,7 +83,7 @@ const handleModalSuccess = () => {
                             v-for="agent in agents"
                             :key="agent.id"
                             class="group relative flex flex-col gap-1 rounded border
-                                border-amber-700 bg-amber-800/50 p-3 pr-10 transition-colors
+                                border-amber-700 bg-amber-800/50 p-3 pr-20 transition-colors
                                 hover:bg-amber-800"
                         >
                             <div class="font-bold text-amber-100">{{ agent.name }}</div>
@@ -88,6 +96,14 @@ const handleModalSuccess = () => {
                                 class="absolute top-2 right-2 flex gap-1 opacity-0
                                     transition-opacity group-hover:opacity-100"
                             >
+                                <button
+                                    @click.stop="openMemoryExplorer(agent.id)"
+                                    class="rounded bg-purple-900/80 p-1 text-purple-200
+                                        hover:bg-purple-700"
+                                    title="View Long Term Memory"
+                                >
+                                    <Icon name="lucide:brain" class="h-4 w-4" />
+                                </button>
                                 <button
                                     @click.stop="openEditModal(agent.id)"
                                     class="rounded bg-amber-700 p-1 text-amber-100
@@ -121,6 +137,12 @@ const handleModalSuccess = () => {
             @close="showModal = false"
             @created="handleModalSuccess"
             @updated="handleModalSuccess"
+        />
+
+        <AgentMemoryExplorer
+            :is-open="showMemoryExplorer"
+            :agent-id="selectedAgentIdForMemory"
+            @close="showMemoryExplorer = false"
         />
     </div>
 </template>

@@ -170,6 +170,19 @@ async def delete_agent(agent_id: int, db: Session = Depends(get_db)):
     return {"status": "success", "id": agent_id}
 
 
+@app.get("/agents/{agent_id}/memories")
+async def get_agent_memories(agent_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves the entire Long-Term Memory (Vector DB) for an agent.
+    """
+    agent_db = crud.get_agent(db, agent_id)
+    if not agent_db:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    memories = memory_store.get_all_memories(agent_db.name)
+    return {"agent_name": agent_db.name, "memories": memories}
+
+
 # 3. INTERACTION LOOP
 
 

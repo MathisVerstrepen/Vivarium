@@ -92,6 +92,29 @@ class MemoryStore:
             }
         return None
 
+    def get_all_memories(self, agent_name: str) -> List[Dict[str, Any]]:
+        """
+        Retrieves ALL memories for a specific agent (for debugging/explorer).
+        """
+        results = self.collection.get(where={"agent": agent_name})
+
+        if not results["ids"]:
+            return []
+
+        memories = []
+        for i, id_val in enumerate(results["ids"]):
+            meta = results["metadatas"][i] if results["metadatas"] else {}
+            memories.append(
+                {
+                    "id": id_val,
+                    "content": results["documents"][i],  # type: ignore
+                    "category": meta.get("category", "UNKNOWN"),
+                    "subject": meta.get("subject", "Unknown"),
+                    "created_at": "N/A",
+                }
+            )
+        return memories
+
     def delete_memory(self, memory_id: str):
         self.collection.delete(ids=[memory_id])
 

@@ -9,6 +9,7 @@ import type {
     AgentProfile,
     ChatResponse,
     EndChatResponse,
+    MemoryExplorerResponse,
 } from '~/types/vivarium';
 
 export const useApi = () => {
@@ -100,6 +101,12 @@ export const useApi = () => {
         });
     };
 
+    // --- Debug / Explorer ---
+
+    const fetchAgentMemories = async (agentId: number): Promise<MemoryExplorerResponse> => {
+        return await $fetch<MemoryExplorerResponse>(`${baseUrl}/agents/${agentId}/memories`);
+    };
+
     return {
         fetchWorlds,
         createWorld,
@@ -113,5 +120,6 @@ export const useApi = () => {
         whisper,
         chatWithAgent,
         endChat,
+        fetchAgentMemories,
     };
 };
