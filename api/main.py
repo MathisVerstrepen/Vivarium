@@ -28,6 +28,8 @@ from schemas.api_dtos import (
 from services.memory_store import MemoryStore
 from services.factory import hydrate_agent_service
 
+GOD_PLAYER_NAME = "Mathis"
+
 # Initialize Tables
 Base.metadata.create_all(bind=engine)
 
@@ -247,8 +249,8 @@ async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
     agent_service = hydrate_agent_service(memory_store, agent_db)
 
     # 2. Update Service State
-    agent_service.listen(req.message, "Player")
-    output = agent_service.act("Player")
+    agent_service.listen(req.message, GOD_PLAYER_NAME)
+    output = agent_service.act(GOD_PLAYER_NAME)
 
     # 3. Save
     crud.update_agent_memory(
@@ -277,7 +279,9 @@ async def end_chat_session(req: EndChatRequest, db: Session = Depends(get_db)):
     agent_service = hydrate_agent_service(memory_store, agent_db)
 
     # 2. Extract Memories
-    extraction = agent_service.process_conversation_end()
+    memories_created = agent_service.process_conversation_end(
+        other_agent_name=GOD_PLAYER_NAME
+    )
 
     # 3. Clear Internal Service State
     agent_service.clear_memory()
@@ -290,4 +294,4 @@ async def end_chat_session(req: EndChatRequest, db: Session = Depends(get_db)):
         mid_term_mem=agent_service.mid_term_memory,
     )
 
-    return EndChatResponse(agent_id=agent_db.id, memories_created=extraction.facts)
+    return EndChatResponse(agent_id=agent_db.id, memories_created=memories_created)

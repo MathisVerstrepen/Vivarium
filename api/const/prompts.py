@@ -1,21 +1,19 @@
 LONG_TERM_MEMORY_EXTRACTION_PROMPT = """
 You are the long-term memory consolidation system for {agent_name}.
-Your goal is to extract permanent, high-value information from the conversation below to store in the database.
+Your goal is to extract permanent, high-value information from the conversation below.
 
 # CONVERSATION LOG
 {conversation_text}
 
 # EXTRACTION GUIDELINES
-1. **Facts about Others**: Specific details revealed by the other party (e.g., "Marcus hates spicy food", "Sophie's mother is an architect").
-2. **Relationship Status**: Significant shifts in trust, romance, or rivalry (e.g., "I promised to help Marcus with his code", "
-I feel betrayed by Sophie's lie").
-3. **World Building**: Facts established about the environment or setting.
-4. **Self-Disclosure**: Important things {agent_name} revealed about themselves (so they remember they said it).
+1. **SELF**: New things {agent_name} revealed, realized, or decided about themselves (e.g., "I realized I love jazz", "I felt anxious around Marcus"). Talk as first-person.
+2. **AGENT**: Facts learned about the *other* person (e.g., "{other_agent_name} is studying biology", "{other_agent_name} seemed angry").
+3. **WORLD**: General facts established (e.g., "The library closes at 6pm", "There is a party tonight").
 
 # STRICT RULES
-- **IGNORE** pleasantries, greetings, and filler ("Hello", "How are you", "Okay").
+- **IGNORE** pleasantries, greetings, and filler ("Hello", "How are you").
 - **IGNORE** temporary states ("I am hungry now", "I am walking to the door").
-- **OUTPUT**: A list of standalone, objective statements.
+- **PRECISION**: Keep facts concise, atomic, and objective.
 """
 
 MID_TERM_MEMORY_SUMMARY_PROMPT = """
@@ -76,4 +74,21 @@ You are talking to [{other_agents_names}].
 
 # INSTRUCTIONS
 Read the history. Form an internal thought based on your biases. Decide your mood. Then speak.
+"""
+
+MEMORY_MERGE_PROMPT = """
+You are a memory database manager.
+We have an **Existing Memory** in the database and a **New Memory** extracted from a recent conversation.
+They are semantically similar. Decide how to handle them.
+
+Existing Memory: "{existing_memory}"
+New Memory: "{new_memory}"
+
+# INSTRUCTIONS
+1. If the New Memory **adds detail** to the Existing Memory, **MERGE** them into one concise statement.
+2. If the New Memory **conflicts** with the Existing Memory (e.g., an update in status), **OVERWRITE** using the New Memory.
+3. If they are actually about **different things** (false positive similarity), keep **BOTH** as separate statements.
+4. If they are **identical**, return just the **EXISTING** one.
+
+Output a JSON object with a 'facts' list containing the resulting string(s).
 """

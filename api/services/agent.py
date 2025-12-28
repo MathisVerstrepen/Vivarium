@@ -1,13 +1,14 @@
 from typing import List, Optional
 from schemas.interaction import AgentOutput
 from schemas.personnality import AgentProfile
-from schemas.memory import MemoryExtraction
+from schemas.memory import MemoryExtraction, NewMemory, MergedMemory
 from helpers.openrouter import run_llm, run_llm_with_schema
 from services.memory_store import MemoryStore
 from const.prompts import (
     LONG_TERM_MEMORY_EXTRACTION_PROMPT,
     MID_TERM_MEMORY_SUMMARY_PROMPT,
     AGENT_SYSTEM_PROMPT,
+    MEMORY_MERGE_PROMPT,
 )
 
 
@@ -133,26 +134,70 @@ class Agent:
             # 4. Store in Mid Term
             self.mid_term_memory.append(f"{summary}")
 
-    def process_conversation_end(self):
-        """Finalizes the conversation by extracting long-term insights and saving to Vector DB."""
-        # We use archival_memory here to ensure no details are lost due to summarization
+    def process_conversation_end(self, other_agent_name: str) -> List[str]:
+        """
+        Finalizes the conversation:
+        1. Extracts categorized memories.
+        2. Checks for duplicates in the Vector DB.
+        3. Merges or Inserts.
+        """
         full_context = "\n".join(self.archival_memory)
 
+        # 1. Extraction
         extraction = run_llm_with_schema(
             user_prompt=LONG_TERM_MEMORY_EXTRACTION_PROMPT.format(
                 agent_name=self.profile.identity.name,
+                other_agent_name=other_agent_name,
                 conversation_text=full_context,
             ),
             model=self.model,
             schema=MemoryExtraction,
         )
 
-        # Commit to the Vector Database (The Vault)
-        self.memory_store.add_memories(
-            agent_name=self.profile.identity.name, texts=extraction.facts
-        )
+        final_facts_added = []
 
-        return extraction
+        # 2. Deduplication & Storage Loop
+        for mem in extraction.memories:
+            # Search for similar memory
+            nearest = self.memory_store.retrieve_nearest_memory(
+                agent_name=self.profile.identity.name,
+                query_text=mem.content,
+                threshold_distance=0.45,  # Strict threshold for "Is this the same fact?"
+            )
+
+            if nearest:
+                print(
+                    f"[Memory] Found duplicate/conflict for '{mem.content}' -> '{nearest['text']}'"
+                )
+
+                # Ask LLM to merge
+                merge_result = run_llm_with_schema(
+                    user_prompt=MEMORY_MERGE_PROMPT.format(
+                        existing_memory=nearest["text"], new_memory=mem.content
+                    ),
+                    model=self.model,
+                    schema=MergedMemory,
+                )
+
+                # Delete old memory
+                self.memory_store.delete_memory(nearest["id"])
+
+                # Insert merged result(s)
+                for fact in merge_result.facts:
+                    new_mem_obj = NewMemory(
+                        category=mem.category, subject=mem.subject, content=fact
+                    )
+                    self.memory_store.add_memory(
+                        self.profile.identity.name, new_mem_obj
+                    )
+                    final_facts_added.append(fact)
+
+            else:
+                # No duplicate found, just add
+                self.memory_store.add_memory(self.profile.identity.name, mem)
+                final_facts_added.append(mem.content)
+
+        return final_facts_added
 
     def clear_memory(self):
         """Resets the temporary memories for the next session."""
